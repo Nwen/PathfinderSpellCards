@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-8000}:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      PORT: "8000"
+      BASE_URL: "${BASE_URL:-http://localhost:8000}"
+      DATABASE_URL: "sqlite:////app/data/spells.db"
+      DATA_DIR: "/app/data"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+      DEBUG: "${DEBUG:-false}"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3

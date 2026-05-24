@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Cartes de sorts Pathfinder{% endblock %}</title>
+  <!-- Tailwind Play CDN — pas de build step requis -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
+  <link rel="stylesheet" href="/static/app.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            school: {
+              abjuration:   '#4a7bb5',
+              divination:   '#5a4fcf',
+              enchantement: '#d87bbf',
+              evocation:    '#e06030',
+              illusion:     '#8b52c7',
+              invocation:   '#4aaa67',
+              necromancie:  '#3a3a4a',
+              transmutation:'#c8922b',
+              universel:    '#8a8a9a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col">
+
+  <!-- Navigation -->
+  <header class="bg-gray-900 text-white shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2 font-bold text-lg hover:text-amber-400 transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        Cartes de sorts PF1e
+      </a>
+      <nav class="flex items-center gap-4 text-sm">
+        <a href="/spells" class="hover:text-amber-400 transition-colors">Sorts</a>
+        <a href="/cart" class="relative hover:text-amber-400 transition-colors">
+          Panier
+          <span id="cart-badge"
+                class="hidden absolute -top-2 -right-3 bg-amber-500 text-white text-xs font-bold
+                       rounded-full w-4 h-4 flex items-center justify-center leading-none">
+            0
+          </span>
+        </a>
+        <a href="/docs" class="hover:text-amber-400 transition-colors text-gray-400">API</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- Contenu principal -->
+  <main class="flex-1">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer attribution (obligatoire OGL) -->
+  <footer class="bg-gray-900 text-gray-400 text-xs py-3 px-4 text-center">
+    Pathfinder Roleplaying Game © Paizo Publishing, LLC.
+    Données issues du <a href="http://www.pathfinder-fr.org/" class="underline hover:text-white" target="_blank" rel="noopener">wiki Pathfinder-fr</a> (CC-BY-SA).
+  </footer>
+
+
+<script>
+/* Cart module — localStorage, available on every page */
+const cart = (function () {
+  const KEY = 'pf-cart';
+  function load() { return JSON.parse(localStorage.getItem(KEY) || '[]'); }
+  function save(items) { localStorage.setItem(KEY, JSON.stringify(items)); }
+  function updateBadge() {
+    const n = load().length;
+    const badge = document.getElementById('cart-badge');
+    if (!badge) return;
+    badge.textContent = n;
+    badge.classList.toggle('hidden', n === 0);
+  }
+  return {
+    add: function (slug, nameFr, school) {
+      const items = load();
+      if (!items.find(function (i) { return i.slug === slug; })) {
+        items.push({ slug: slug, nameFr: nameFr, school: school });
+        save(items);
+      }
+      updateBadge();
+    },
+    remove: function (slug) {
+      save(load().filter(function (i) { return i.slug !== slug; }));
+      updateBadge();
+    },
+    clear: function () { save([]); updateBadge(); },
+    getAll: function () { return load(); },
+    count: function () { return load().length; },
+    has: function (slug) { return load().some(function (i) { return i.slug === slug; }); },
+    updateBadge: updateBadge,
+  };
+})();
+
+document.addEventListener('DOMContentLoaded', function () {
+  cart.updateBadge();
+
+  /* Add-to-cart button (detail page) */
+  var btn = document.getElementById('add-to-cart-btn');
+  if (!btn) return;
+  var slug = btn.dataset.slug;
+  if (cart.has(slug)) {
+    btn.textContent = 'Déjà dans la planche ✓';
+    btn.disabled = true;
+    btn.classList.add('opacity-60', 'cursor-default');
+    btn.classList.remove('hover:bg-amber-600');
+  }
+  btn.addEventListener('click', function () {
+    cart.add(slug, btn.dataset.name, btn.dataset.school);
+    btn.textContent = 'Ajouté ✓';
+    btn.disabled = true;
+    btn.classList.add('opacity-60', 'cursor-default');
+    btn.classList.remove('hover:bg-amber-600');
+  });
+});
+</script>
+</body>
+</html>

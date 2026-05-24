@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap');
+
+{% if theme == "parchemin" %}
+:root {
+  --card-bg:       #f5e9cc;
+  --text:          #2c1a08;
+  --text-strong:   #1a0e04;
+  --muted:         #7a5828;
+  --meta-label:    #6b4426;
+  --border:        #c4a062;
+  --footer-text:   #8b6830;
+  --footer-border: #d4b070;
+}
+{% else %}
+:root {
+  --card-bg:       #fff;
+  --text:          #1a1a1a;
+  --text-strong:   #111;
+  --muted:         #666;
+  --meta-label:    #555;
+  --border:        #d0d0d0;
+  --footer-text:   #999;
+  --footer-border: #e0e0e0;
+}
+{% endif %}
+
+@page {
+  size: 63mm 88mm;
+  margin: 0;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 63mm;
+  background: var(--card-bg);
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  color: var(--text);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  width: 63mm;
+  height: 88mm;
+  overflow: hidden;
+  background: var(--card-bg);
+  {% if theme == "parchemin" %}
+  border: 0.8pt solid #b8915a;
+  {% endif %}
+}
+
+/* ── Bande de couleur école ──────────────────────────────── */
+.color-bar {
+  height: 2.2mm;
+  flex-shrink: 0;
+  background-color: {{ spell['school'] | school_color }};
+}
+
+/* ── En-tête ─────────────────────────────────────────────── */
+.header-full {
+  flex-shrink: 0;
+  padding: 1.2mm 2mm 1mm;
+  border-bottom: 0.3pt solid var(--border);
+}
+
+.header-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1mm;
+  margin-bottom: 0.5mm;
+}
+
+.school-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5mm;
+  background-color: {{ spell['school'] | school_color }};
+  color: #fff;
+  font-size: 4.8pt;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  padding: 0.25mm 1.2mm 0.35mm;
+  border-radius: 0.8mm;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.levels {
+  font-size: 5.2pt;
+  color: var(--meta-label);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.spell-name {
+  font-family: 'Cinzel', 'Palatino Linotype', 'Book Antiqua', Palatino, serif;
+  font-size: 10pt;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-strong);
+}
+
+.school-detail {
+  font-size: 5pt;
+  color: var(--muted);
+  margin-top: 0.3mm;
+}
+
+/* ── Métadonnées ─────────────────────────────────────────── */
+.meta {
+  flex-shrink: 0;
+  padding: 1mm 2mm 0.5mm;
+  border-bottom: 0.3pt solid var(--border);
+}
+
+.meta-row {
+  display: flex;
+  gap: 1mm;
+  margin-bottom: 0.25mm;
+  line-height: 1.25;
+}
+
+.meta-label {
+  color: var(--meta-label);
+  font-size: 5.5pt;
+  font-weight: 600;
+  min-width: 13mm;
+  flex-shrink: 0;
+}
+
+.meta-value {
+  font-size: 5.5pt;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Description ─────────────────────────────────────────── */
+.description {
+  flex: 1;
+  overflow: hidden;
+  padding: 1mm 2mm 0;
+  line-height: 1.35;
+}
+
+/* ── Pied de page OGL ────────────────────────────────────── */
+.footer {
+  flex-shrink: 0;
+  padding: 0.6mm 2mm;
+  font-size: 4.2pt;
+  color: var(--footer-text);
+  border-top: 0.3pt solid var(--footer-border);
+  text-align: center;
+  line-height: 1.2;
+}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="color-bar"></div>
+
+  <div class="header-full">
+    <div class="header-top">
+      <span class="school-badge">{{ spell['school'] | school_icon | safe }}{{ spell['school'] | capitalize }}
+        {%- if spell['subschool'] %} · {{ spell['subschool'] }}{% endif %}
+      </span>
+      <span class="levels">{{ spell['level_json'] | format_levels }}</span>
+    </div>
+    <div class="spell-name">{{ spell['name_fr'] }}</div>
+    {% if spell['descriptors'] %}
+    <div class="school-detail">[{{ spell['descriptors'] }}]</div>
+    {% endif %}
+  </div>
+
+  <div class="meta">
+    {% set meta_rows = [
+      ("Incantation", spell['casting_time']),
+      ("Composantes", spell['components']),
+      ("Portée",      spell['spell_range']),
+      ("Zone/Cible",  spell['target'] or spell['area']),
+      ("Durée",       spell['duration']),
+      ("JS",          spell['saving_throw']),
+      ("RM",          spell['spell_resistance']),
+    ] %}
+    {% for label, value in meta_rows if value %}
+    <div class="meta-row">
+      <span class="meta-label">{{ label }}</span>
+      <span class="meta-value">{{ value }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="description" style="font-size: {{ desc_font_size }};">
+    {{ spell['description_fr'] | replace('\n\n', '<br><br>') | replace('\n', ' ') | safe }}
+  </div>
+
+  <div class="footer">
+    Pathfinder RPG &copy; Paizo Publishing, LLC &bull;
+    données CC-BY-SA <em>pathfinder-fr.org</em>
+  </div>
+</div>
+
+</body>
+</html>

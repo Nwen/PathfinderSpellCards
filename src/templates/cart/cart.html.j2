@@ -1,0 +1,140 @@
+{% extends "base.html.j2" %}
+{% block title %}Panier — Pathfinder 1e{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Panier</h1>
+    <button id="clear-cart-btn"
+            class="text-sm text-gray-400 hover:text-red-500 transition-colors underline">
+      Vider le panier
+    </button>
+  </div>
+
+  <!-- Liste des sorts dans le panier -->
+  <div id="cart-empty" class="hidden bg-gray-50 border border-dashed border-gray-300 rounded-xl p-12 text-center">
+    <p class="text-gray-500 mb-3">Votre panier est vide.</p>
+    <a href="/spells" class="text-amber-600 hover:text-amber-700 font-medium text-sm underline">
+      Parcourir les sorts →
+    </a>
+  </div>
+
+  <div id="cart-list" class="space-y-2 mb-6"></div>
+
+  <!-- Pied de panier -->
+  <div id="cart-actions" class="hidden flex flex-col sm:flex-row gap-3 items-start sm:items-center mt-6 pt-4 border-t border-gray-200">
+    <span id="cart-count-label" class="text-sm text-gray-500"></span>
+    <div class="flex items-center gap-3 ml-auto">
+      <!-- Sélecteur de thème -->
+      <label class="flex items-center gap-2 text-sm text-gray-600">
+        <span class="font-medium">Thème</span>
+        <select id="theme-select"
+                class="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <option value="sobre">Sobre</option>
+          <option value="parchemin">Parchemin</option>
+        </select>
+      </label>
+      <a id="sheet-html-link" href="#"
+         class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+        Aperçu HTML
+      </a>
+      <a id="sheet-pdf-link" href="#"
+         class="px-5 py-2.5 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors">
+        Générer la planche PDF
+      </a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const items = cart.getAll();
+  const listEl = document.getElementById('cart-list');
+  const emptyEl = document.getElementById('cart-empty');
+  const actionsEl = document.getElementById('cart-actions');
+  const countLabel = document.getElementById('cart-count-label');
+  const pdfLink = document.getElementById('sheet-pdf-link');
+  const htmlLink = document.getElementById('sheet-html-link');
+  const themeSelect = document.getElementById('theme-select');
+
+  function updateLinks(items) {
+    const slugs = encodeURIComponent(items.map(function(i) { return i.slug; }).join(','));
+    const theme = themeSelect ? themeSelect.value : 'sobre';
+    pdfLink.href = '/sheet.pdf?slugs=' + slugs + '&theme=' + theme;
+    htmlLink.href = '/sheet.html?slugs=' + slugs + '&theme=' + theme;
+  }
+
+  function renderCart() {
+    const items = cart.getAll();
+    listEl.innerHTML = '';
+
+    if (items.length === 0) {
+      emptyEl.classList.remove('hidden');
+      actionsEl.classList.add('hidden');
+      return;
+    }
+
+    emptyEl.classList.add('hidden');
+    actionsEl.classList.remove('hidden');
+    updateLinks(items);
+
+    const n = items.length;
+    const sheets = Math.ceil(n / 9);
+    countLabel.textContent = n + ' sort' + (n > 1 ? 's' : '') +
+      ' — ' + sheets + ' planche' + (sheets > 1 ? 's' : '') + ' A4';
+
+    items.forEach(function(item) {
+      const div = document.createElement('div');
+      div.className = 'flex items-center justify-between bg-white rounded-xl shadow-sm px-4 py-3 border border-gray-100';
+      div.innerHTML =
+        '<div class="flex items-center gap-3">' +
+          '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color:' + schoolColor(item.school) + '"></span>' +
+          '<a href="/spells/' + item.slug + '" class="text-sm font-medium text-gray-800 hover:text-amber-700">' +
+            escHtml(item.nameFr) +
+          '</a>' +
+          '<span class="text-xs text-gray-400">' + escHtml(item.school) + '</span>' +
+        '</div>' +
+        '<button class="remove-btn text-xs text-gray-400 hover:text-red-500 transition-colors" data-slug="' + item.slug + '">' +
+          'Retirer' +
+        '</button>';
+      listEl.appendChild(div);
+    });
+
+    listEl.querySelectorAll('.remove-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        cart.remove(btn.dataset.slug);
+        renderCart();
+      });
+    });
+  }
+
+  document.getElementById('clear-cart-btn').addEventListener('click', function() {
+    cart.clear();
+    renderCart();
+  });
+
+  if (themeSelect) {
+    themeSelect.addEventListener('change', function() {
+      updateLinks(cart.getAll());
+    });
+  }
+
+  function escHtml(s) {
+    return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function schoolColor(school) {
+    const colors = {
+      'abjuration': '#4a7bb5', 'divination': '#5a4fcf', 'enchantement': '#d87bbf',
+      'évocation': '#e06030', 'illusion': '#8b52c7', 'invocation': '#4aaa67',
+      'nécromancie': '#3a3a4a', 'transmutation': '#c8922b', 'universel': '#8a8a9a'
+    };
+    return colors[school] || '#888';
+  }
+
+  renderCart();
+});
+</script>
+{% endblock %}

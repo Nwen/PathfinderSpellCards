@@ -1,0 +1,114 @@
+{% extends "base.html.j2" %}
+{% block title %}Sorts — Pathfinder 1e{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6 flex gap-6">
+
+  <!-- ── Filtres (sidebar) ──────────────────────────────────────────────── -->
+  <aside class="w-64 shrink-0">
+    <form id="filter-form"
+          hx-get="/spells"
+          hx-target="#spell-list"
+          hx-push-url="true"
+          hx-trigger="change from:#filter-form, input changed delay:300ms from:#q-input"
+          class="bg-white rounded-xl shadow p-4 space-y-5 sticky top-4">
+
+      <h2 class="font-bold text-gray-700 text-sm uppercase tracking-wide">Filtres</h2>
+
+      <!-- Recherche -->
+      <div>
+        <label for="q-input" class="block text-sm font-medium text-gray-600 mb-1">Recherche</label>
+        <input id="q-input" name="q" type="search"
+               value="{{ filters.q }}"
+               placeholder="Nom du sort…"
+               class="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+
+      <!-- École -->
+      <div>
+        <label for="school-select" class="block text-sm font-medium text-gray-600 mb-1">École</label>
+        <select id="school-select" name="school"
+                class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <option value="">Toutes</option>
+          {% for s in known_schools %}
+          <option value="{{ s }}" {% if filters.school == s %}selected{% endif %}>
+            {{ s | capitalize }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Classe -->
+      <div>
+        <label for="class-select" class="block text-sm font-medium text-gray-600 mb-1">Classe</label>
+        <select id="class-select" name="classe"
+                class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <option value="">Toutes</option>
+          {% for c in known_classes %}
+          <option value="{{ c }}" {% if filters.classe == c %}selected{% endif %}>
+            {{ c | capitalize }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Niveau (0-9) -->
+      <div>
+        <label class="block text-sm font-medium text-gray-600 mb-1">Niveau</label>
+        <div class="flex flex-wrap gap-1">
+          <label class="cursor-pointer">
+            <input type="radio" name="level" value=""
+                   {% if filters.level == '' %}checked{% endif %}
+                   class="sr-only peer">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg border text-sm
+                         peer-checked:bg-amber-500 peer-checked:text-white peer-checked:border-amber-500
+                         hover:border-amber-400 transition-colors">—</span>
+          </label>
+          {% for n in range(10) %}
+          <label class="cursor-pointer">
+            <input type="radio" name="level" value="{{ n }}"
+                   {% if filters.level | string == n | string %}checked{% endif %}
+                   class="sr-only peer">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg border text-sm font-medium
+                         peer-checked:bg-amber-500 peer-checked:text-white peer-checked:border-amber-500
+                         hover:border-amber-400 transition-colors">{{ n }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Reset -->
+      <a href="/spells"
+         class="block text-center text-xs text-gray-400 hover:text-gray-600 underline mt-2">
+        Réinitialiser les filtres
+      </a>
+    </form>
+  </aside>
+
+  <!-- ── Liste des sorts ───────────────────────────────────────────────── -->
+  <section class="flex-1 min-w-0">
+
+    {% if db_empty %}
+    <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+      <p class="text-amber-800 font-semibold mb-2">Base de données vide</p>
+      <p class="text-sm text-amber-700">Lance <code class="bg-amber-100 px-1 rounded">make ingest</code>
+         pour télécharger et indexer les sorts depuis pathfinder-fr.org.</p>
+    </div>
+    {% else %}
+
+    <div id="spell-list">
+      {% include "browse/_items.html.j2" %}
+    </div>
+
+    {% endif %}
+  </section>
+
+</div>
+
+<!-- Indicateur de chargement HTMX -->
+<div id="htmx-indicator"
+     class="fixed bottom-4 right-4 bg-gray-900 text-white text-sm px-4 py-2 rounded-full shadow-lg
+            opacity-0 htmx-indicator transition-opacity">
+  Chargement…
+</div>
+{% endblock %}

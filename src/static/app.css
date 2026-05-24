@@ -1,0 +1,13 @@
+/* Styles complémentaires à Tailwind */
+
+/* Indicateur HTMX visible seulement pendant les requêtes */
+.htmx-request .htmx-indicator { opacity: 1 !important; }
+.htmx-request.htmx-indicator  { opacity: 1 !important; }
+
+/* prose overrides légers */
+.prose p { margin-top: 0.75em; margin-bottom: 0.75em; }
+
+/* Scrollbar discrète */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }

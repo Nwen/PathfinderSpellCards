@@ -1,0 +1,164 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ spell.name_fr }} — Pathfinder 1e{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+  <!-- Retour -->
+  <a href="javascript:history.back()"
+     class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+    ← Retour à la liste
+  </a>
+
+  <!-- En-tête du sort -->
+  <div class="bg-white rounded-xl shadow overflow-hidden mb-6">
+    <div class="h-2" style="background-color: {{ spell['school'] | school_color }};"></div>
+
+    <div class="p-6">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div>
+          <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full text-white mb-2"
+                style="background-color: {{ spell['school'] | school_color }};">
+            {{ spell['school'] | school_icon | safe }}{{ spell['school'] | capitalize }}{% if spell['subschool'] %} ({{ spell['subschool'] }}){% endif %}
+          </span>
+          <h1 class="text-3xl font-bold text-gray-900">{{ spell['name_fr'] }}</h1>
+          {% if spell['descriptors'] %}
+          <p class="text-sm text-gray-500 mt-1">[{{ spell['descriptors'] }}]</p>
+          {% endif %}
+        </div>
+
+        <!-- Niveaux par classe -->
+        <div class="shrink-0 text-right">
+          {% for cls, lvl in spell['levels'].items() | sort %}
+          <span class="inline-flex items-center gap-1 text-sm bg-gray-100 rounded-lg px-2 py-1 mr-1 mb-1">
+            <span class="font-medium">{{ cls | capitalize }}</span>
+            <span class="text-gray-500">{{ lvl }}</span>
+          </span>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Tableau de métadonnées -->
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm border-t pt-4">
+        {% set meta = [
+          ("Temps d'incantation", spell['casting_time']),
+          ("Composantes",         spell['components']),
+          ("Portée",              spell['spell_range']),
+          ("Cible / Zone",        spell['target'] or spell['area']),
+          ("Durée",               spell['duration']),
+          ("Jet de sauvegarde",   spell['saving_throw']),
+          ("Résistance à la magie", spell['spell_resistance']),
+        ] %}
+        {% for label, value in meta if value %}
+        <div class="flex gap-2">
+          <dt class="text-gray-500 font-medium shrink-0 w-44">{{ label }}</dt>
+          <dd class="text-gray-800">{{ value }}</dd>
+        </div>
+        {% endfor %}
+        {% if spell['source'] %}
+        <div class="flex gap-2">
+          <dt class="text-gray-500 font-medium shrink-0 w-44">Source</dt>
+          <dd class="text-gray-800">{{ spell['source'] }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  <!-- Description -->
+  <div class="bg-white rounded-xl shadow p-6">
+    <h2 class="text-base font-semibold text-gray-700 mb-3">Description</h2>
+    <div class="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm">{{ spell['description_fr'] }}</div>
+  </div>
+
+  <!-- Aperçu de la carte -->
+  <div class="mt-6 bg-white rounded-xl shadow overflow-hidden">
+    <button id="preview-toggle-btn"
+            onclick="togglePreview()"
+            class="w-full flex items-center justify-between px-6 py-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+      <span>Aperçu de la carte</span>
+      <span id="preview-arrow" class="text-gray-400 text-xs">▼</span>
+    </button>
+
+    <div id="preview-panel" class="hidden border-t border-gray-100">
+      <div class="px-6 py-5">
+        <!-- Contrôles -->
+        <div class="flex flex-wrap items-center gap-3 mb-5">
+          <label class="text-sm text-gray-600 font-medium">Thème :</label>
+          <select id="card-theme-select" onchange="updateCardPreview()"
+                  class="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <option value="sobre">Sobre</option>
+            <option value="parchemin">Parchemin</option>
+          </select>
+          <a id="card-html-link"
+             href="/spells/{{ spell['slug_fr'] }}/card.html?theme=sobre"
+             target="_blank" rel="noopener"
+             class="text-sm text-gray-600 border border-gray-300 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors">
+            Plein écran ↗
+          </a>
+          <a id="card-pdf-link"
+             href="/spells/{{ spell['slug_fr'] }}/card.pdf?theme=sobre"
+             target="_blank" rel="noopener"
+             class="text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg px-3 py-1.5 transition-colors">
+            Télécharger PDF
+          </a>
+        </div>
+
+        <!-- Iframe centrée -->
+        <div class="flex justify-center bg-gray-50 rounded-xl p-6">
+          <iframe id="card-preview-iframe"
+                  src="/spells/{{ spell['slug_fr'] }}/card.html?theme=sobre"
+                  width="252" height="354"
+                  scrolling="no"
+                  class="rounded-lg shadow-lg border-0"
+                  title="Aperçu de la carte {{ spell['name_fr'] | e }}">
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="mt-4 flex flex-wrap gap-3">
+    <button id="add-to-cart-btn"
+            data-slug="{{ spell['slug_fr'] }}"
+            data-name="{{ spell['name_fr'] }}"
+            data-school="{{ spell['school'] }}"
+            class="px-5 py-2.5 rounded-xl bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors">
+      + Ajouter à la planche
+    </button>
+    <a href="/cart"
+       class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+      Voir le panier →
+    </a>
+    {% if spell['raw_url'] %}
+    <a href="{{ spell['raw_url'] }}" target="_blank" rel="noopener"
+       class="px-4 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+      Voir sur pathfinder-fr.org ↗
+    </a>
+    {% endif %}
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var slug = {{ spell['slug_fr'] | tojson }};
+
+  window.togglePreview = function () {
+    var panel = document.getElementById('preview-panel');
+    var arrow = document.getElementById('preview-arrow');
+    var hidden = panel.classList.toggle('hidden');
+    arrow.textContent = hidden ? '▼' : '▲';
+  };
+
+  window.updateCardPreview = function () {
+    var theme = document.getElementById('card-theme-select').value;
+    var base = '/spells/' + slug;
+    document.getElementById('card-preview-iframe').src = base + '/card.html?theme=' + theme;
+    document.getElementById('card-html-link').href   = base + '/card.html?theme=' + theme;
+    document.getElementById('card-pdf-link').href    = base + '/card.pdf?theme='  + theme;
+  };
+})();
+</script>
+{% endblock %}
