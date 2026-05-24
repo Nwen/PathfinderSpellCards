@@ -1,20 +1,20 @@
 {% extends "base.html.j2" %}
-{% block title %}Panier — Pathfinder 1e{% endblock %}
+{% block title %}Planche — Pathfinder 1e{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto px-4 py-6">
 
   <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-gray-900">Panier</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Planche</h1>
     <button id="clear-cart-btn"
             class="text-sm text-gray-400 hover:text-red-500 transition-colors underline">
-      Vider le panier
+      Vider la planche
     </button>
   </div>
 
-  <!-- Liste des sorts dans le panier -->
+  <!-- Liste des sorts dans la planche -->
   <div id="cart-empty" class="hidden bg-gray-50 border border-dashed border-gray-300 rounded-xl p-12 text-center">
-    <p class="text-gray-500 mb-3">Votre panier est vide.</p>
+    <p class="text-gray-500 mb-3">Votre planche est vide.</p>
     <a href="/spells" class="text-amber-600 hover:text-amber-700 font-medium text-sm underline">
       Parcourir les sorts →
     </a>
@@ -22,7 +22,7 @@
 
   <div id="cart-list" class="space-y-2 mb-6"></div>
 
-  <!-- Pied de panier -->
+  <!-- Pied de planche -->
   <div id="cart-actions" class="hidden flex flex-col sm:flex-row gap-3 items-start sm:items-center mt-6 pt-4 border-t border-gray-200">
     <span id="cart-count-label" class="text-sm text-gray-500"></span>
     <div class="flex items-center gap-3 ml-auto">
