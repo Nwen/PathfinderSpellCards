@@ -30,8 +30,11 @@ _EOL = r"(?:\n|<br\s*/?>)"
 # ── Patterns de champs ────────────────────────────────────────────────────────
 SCHOOL_RE = re.compile(
     r"'''[ÉEée]cole'''\s+"
-    r"(?:\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]"
-    r"|(Universel(?:le)?))",
+    r"(?:"
+    r"\[\[[^\]|#]*(?:#[^\]|]*)?\|([^\]]+)\]\]"  # group 1: [[any|DISPLAY]]
+    r"|\[\[([^\]|#]+)(?:#[^\]|]+)?\]\]"           # group 2: [[LINK]]
+    r"|(Universel(?:le)?)"                         # group 3: Universel(le)
+    r")",
     re.IGNORECASE,
 )
 
@@ -375,10 +378,13 @@ def _parse_school(raw: str) -> tuple[str, str, list[str]]:
     if not m:
         return "", "", []
 
-    school_raw = (m.group(1) or m.group(2) or "").strip().lower()
+    school_raw = (m.group(1) or m.group(2) or m.group(3) or "").strip().lower()
     # Normalise les variantes avec accents / sans
     school_raw = unicodedata.normalize("NFKD", school_raw)
     school_raw = school_raw.encode("ascii", "ignore").decode("ascii").lower()
+    # Supprime le préfixe "ecole " issu de liens catégorie comme [[Ecole divination]]
+    if school_raw.startswith("ecole "):
+        school_raw = school_raw[len("ecole "):]
     school = _SCHOOL_MAP.get(school_raw, school_raw)
 
     # Sous-école ex: ([[branche invocation|création]])
@@ -460,12 +466,15 @@ _SOURCE_MARKER = re.compile(r"\{s:[A-Za-z0-9]+\}", re.IGNORECASE)
 _SQUARE_MARKER = re.compile(r"\{s:c\}", re.IGNORECASE)
 _EXTRA_SPACES = re.compile(r" {2,}")
 _EXTRA_NEWLINES = re.compile(r"\n{3,}")
+# Blocs FAQ : {s:FAQ|...} — le contenu peut contenir des {s:XX} imbriqués (un niveau)
+_FAQ_BLOCK = re.compile(r"\{s:FAQ\|(?:[^{}]|\{[^{}]*\})*\}", re.DOTALL | re.IGNORECASE)
 
 
 def _clean_wiki(text: str) -> str:
     """Supprime le markup wiki et retourne du texte lisible."""
     if not text:
         return ""
+    text = _FAQ_BLOCK.sub("", text)  # doit précéder les autres substitutions
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
     text = _LINK_WITH_DISPLAY.sub(r"\1", text)
     text = _LINK_PLAIN.sub(r"\1", text)

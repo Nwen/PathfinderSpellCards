@@ -100,18 +100,23 @@ def spell_list(
 
 @router.get("/spells/{slug}", response_class=HTMLResponse)
 def spell_detail(request: Request, slug: str):
-    spell = db.get_spell(slug)
-    if spell is None:
+    raw = db.get_spell(slug)
+    if raw is None:
         return templates.TemplateResponse(
             request, "404.html.j2", _ctx(), status_code=404
         )
 
-    spell_dict = dict(spell)
+    original = dict(raw)
     try:
-        spell_dict["levels"] = json.loads(spell_dict.get("level_json") or "{}")
+        original["levels"] = json.loads(original.get("level_json") or "{}")
     except (json.JSONDecodeError, TypeError):
-        spell_dict["levels"] = {}
+        original["levels"] = {}
+
+    active_overrides = db.get_overrides(slug)
+    spell_dict = db.apply_overrides(original, active_overrides)
+    spell_dict["levels"] = original["levels"]   # levels always from DB level_json
 
     return templates.TemplateResponse(
-        request, "browse/detail.html.j2", _ctx(spell=spell_dict)
+        request, "browse/detail.html.j2",
+        _ctx(spell=spell_dict, original_spell=original, active_overrides=active_overrides),
     )

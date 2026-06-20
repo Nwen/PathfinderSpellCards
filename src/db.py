@@ -210,6 +210,12 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_school  ON spells(school);
             CREATE INDEX IF NOT EXISTS idx_name_fr ON spells(name_fr COLLATE NOCASE);
             CREATE INDEX IF NOT EXISTS idx_is_ogl  ON spells(is_ogl);
+
+            CREATE TABLE IF NOT EXISTS spell_overrides (
+                slug_fr    TEXT PRIMARY KEY REFERENCES spells(slug_fr) ON DELETE CASCADE,
+                overrides  TEXT NOT NULL DEFAULT '{}',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
 
 
@@ -312,6 +318,52 @@ def get_spell(slug: str) -> sqlite3.Row | None:
         return conn.execute(
             "SELECT * FROM spells WHERE slug_fr = ? AND is_ogl = 1", (slug,)
         ).fetchone()
+
+
+# ── Overrides ─────────────────────────────────────────────────────────────────
+OVERRIDE_ALLOWED: frozenset[str] = frozenset({
+    "name_fr", "school", "subschool", "descriptors",
+    "casting_time", "components", "spell_range",
+    "target", "area", "duration", "saving_throw",
+    "spell_resistance", "description_fr",
+})
+
+
+def get_overrides(slug: str) -> dict:
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT overrides FROM spell_overrides WHERE slug_fr = ?", (slug,)
+        ).fetchone()
+    if not row:
+        return {}
+    try:
+        return json.loads(row[0]) or {}
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def save_overrides(slug: str, overrides: dict) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """INSERT INTO spell_overrides (slug_fr, overrides, updated_at)
+               VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(slug_fr) DO UPDATE SET
+                 overrides  = excluded.overrides,
+                 updated_at = CURRENT_TIMESTAMP""",
+            (slug, json.dumps(overrides, ensure_ascii=False)),
+        )
+
+
+def clear_overrides(slug: str) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM spell_overrides WHERE slug_fr = ?", (slug,))
+
+
+def apply_overrides(spell: "sqlite3.Row | dict", overrides: dict) -> dict:
+    """Fusionne les corrections utilisateur sur un dict de sort."""
+    result = dict(spell)
+    result.update(overrides)
+    return result
 
 
 # ── Helpers template ──────────────────────────────────────────────────────────

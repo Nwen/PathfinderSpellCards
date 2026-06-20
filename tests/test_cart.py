@@ -27,7 +27,7 @@ class TestCartPage:
 
     def test_cart_page_has_html(self, client):
         r = client.get("/cart")
-        assert "panier" in r.text.lower()
+        assert "planche" in r.text.lower()
 
     def test_cart_page_has_cart_js(self, client):
         r = client.get("/cart")

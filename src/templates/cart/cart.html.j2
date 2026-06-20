@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', function () {
     items.forEach(function(item) {
       const div = document.createElement('div');
       div.className = 'flex items-center justify-between bg-white rounded-xl shadow-sm px-4 py-3 border border-gray-100';
+      div.dataset.slug = item.slug;
       div.innerHTML =
         '<div class="flex items-center gap-3">' +
           '<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color:' + schoolColor(item.school) + '"></span>' +
@@ -96,10 +97,25 @@ document.addEventListener('DOMContentLoaded', function () {
           '</a>' +
           '<span class="text-xs text-gray-400">' + escHtml(item.school) + '</span>' +
         '</div>' +
-        '<button class="remove-btn text-xs text-gray-400 hover:text-red-500 transition-colors" data-slug="' + item.slug + '">' +
-          'Retirer' +
-        '</button>';
+        '<div class="flex items-center gap-3">' +
+          '<span class="override-dot hidden text-amber-500 text-xs" title="corrections actives">◆</span>' +
+          '<button class="remove-btn text-xs text-gray-400 hover:text-red-500 transition-colors" data-slug="' + item.slug + '">Retirer</button>' +
+        '</div>';
       listEl.appendChild(div);
+    });
+
+    // Reveal override dots asynchronously
+    Promise.all(items.map(function(item) {
+      return fetch('/spells/' + item.slug + '/overrides')
+        .then(function(r) { return r.ok ? r.json() : {}; })
+        .then(function(data) { return { slug: item.slug, hasOverrides: Object.keys(data).length > 0 }; })
+        .catch(function() { return { slug: item.slug, hasOverrides: false }; });
+    })).then(function(results) {
+      results.forEach(function(r) {
+        if (!r.hasOverrides) return;
+        var el = listEl.querySelector('[data-slug="' + r.slug + '"] .override-dot');
+        if (el) el.classList.remove('hidden');
+      });
     });
 
     listEl.querySelectorAll('.remove-btn').forEach(function(btn) {

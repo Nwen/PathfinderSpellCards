@@ -12,6 +12,7 @@ from src.config import settings
 from src.routes.browse import router as browse_router
 from src.routes.card import router as card_router
 from src.routes.cart import router as cart_router
+from src.routes.overrides import router as overrides_router
 
 log = structlog.get_logger()
 
@@ -86,6 +87,7 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 app.include_router(browse_router)
 app.include_router(card_router)
 app.include_router(cart_router)
+app.include_router(overrides_router)
 
 
 @app.get("/health")

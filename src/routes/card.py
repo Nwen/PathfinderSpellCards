@@ -52,6 +52,9 @@ def _prepare_spell(row) -> dict:
         spell["levels"] = json.loads(spell.get("level_json") or "{}")
     except (json.JSONDecodeError, TypeError):
         spell["levels"] = {}
+    slug = spell.get("slug_fr", "")
+    if slug:
+        spell = db.apply_overrides(spell, db.get_overrides(slug))
     return spell
 
 

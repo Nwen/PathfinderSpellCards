@@ -32,42 +32,37 @@ def _spell_dict(slug: str):
     return spell
 
 
-# ── Pagination (aucune dépendance WeasyPrint) ─────────────────────────────────
+# ── Calcul de taille de police (aucune dépendance WeasyPrint) ────────────────
 
-class TestPagination:
-    def test_short_description_single_page(self):
-        from src.routes.card import _paginate_description
-        assert _paginate_description("Court.") == ["Court."]
+class TestFontScaling:
+    def test_short_description_uses_base_size(self):
+        from src.routes.card import _description_font_pt, _BASE_FONT_PT
+        assert _description_font_pt("Court.") == f"{_BASE_FONT_PT}pt"
 
-    def test_empty_description(self):
-        from src.routes.card import _paginate_description
-        assert _paginate_description("") == [""]
+    def test_empty_description_uses_base_size(self):
+        from src.routes.card import _description_font_pt, _BASE_FONT_PT
+        assert _description_font_pt("") == f"{_BASE_FONT_PT}pt"
 
-    def test_long_description_splits(self):
-        from src.routes.card import _paginate_description, _CHARS_PAGE1
-        long_text = "Lorem ipsum dolor sit amet. " * 40  # ~1 120 chars
-        pages = _paginate_description(long_text)
-        assert len(pages) >= 2
+    def test_at_threshold_uses_base_size(self):
+        from src.routes.card import _description_font_pt, _BASE_FONT_PT, _BASE_CHARS
+        assert _description_font_pt("x" * _BASE_CHARS) == f"{_BASE_FONT_PT}pt"
 
-    def test_splits_at_paragraph_boundary(self):
-        from src.routes.card import _paginate_description, _CHARS_PAGE1
-        # Construit un texte avec une frontière de paragraphe avant la limite
-        para1 = "A" * 500
-        para2 = "B" * 500
-        text = para1 + "\n\n" + para2
-        pages = _paginate_description(text)
-        assert len(pages) == 2
-        assert pages[0] == para1
-        assert pages[1] == para2
+    def test_long_description_shrinks_font(self):
+        from src.routes.card import _description_font_pt, _BASE_FONT_PT, _BASE_CHARS
+        long_text = "x" * (_BASE_CHARS * 4)
+        size = _description_font_pt(long_text)
+        assert size != f"{_BASE_FONT_PT}pt"
+        pt = float(size.rstrip("pt"))
+        assert pt < _BASE_FONT_PT
 
-    def test_all_text_preserved(self):
-        from src.routes.card import _paginate_description
-        long_text = ("Mot " * 300).strip()
-        pages = _paginate_description(long_text)
-        rejoined = " ".join(p.replace("\n\n", " ").strip() for p in pages)
-        # Tous les mots originaux sont présents (peut y avoir des espaces différents)
-        for word in long_text.split()[:20]:
-            assert word in rejoined
+    def test_very_long_description_clamps_to_minimum(self):
+        from src.routes.card import _description_font_pt, _MIN_FONT_PT
+        size = _description_font_pt("x" * 50_000)
+        assert size == f"{_MIN_FONT_PT}pt"
+
+    def test_returns_pt_string(self):
+        from src.routes.card import _description_font_pt
+        assert _description_font_pt("texte").endswith("pt")
 
 
 # ── HTML de carte ─────────────────────────────────────────────────────────────
@@ -81,10 +76,10 @@ class TestCardHTML:
         html = _render_card_html(_spell_dict("boule-de-feu"))
         assert html.count('class="card"') == 1
 
-    def test_multiple_cards_for_long_spell(self, patch_db):
+    def test_long_spell_still_single_card_with_smaller_font(self, patch_db):
         from src.ingest.parser_fr import SpellData
         from src.ingest.populate import upsert_spells
-        from src.routes.card import _render_card_html
+        from src.routes.card import _render_card_html, _BASE_FONT_PT
         long_desc = ("Description très longue. " * 80).strip()  # ~2 000 chars
         spell = SpellData(
             title="Sort Long",
@@ -108,7 +103,9 @@ class TestCardHTML:
         )
         upsert_spells([spell])
         html = _render_card_html(_spell_dict("sort-long"))
-        assert html.count('class="card"') >= 2
+        assert html.count('class="card"') == 1
+        # Font size should be smaller than the base 6pt
+        assert f"font-size: {_BASE_FONT_PT}pt" not in html
 
     def test_suite_label_present_on_continuation(self, patch_db):
         from src.ingest.parser_fr import SpellData

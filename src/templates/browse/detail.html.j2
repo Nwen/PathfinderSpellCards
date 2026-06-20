@@ -71,6 +71,138 @@
     <div class="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm">{{ spell['description_fr'] }}</div>
   </div>
 
+  <!-- Éditer la carte -->
+  {%- macro field_cls(name) -%}
+  w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 transition-colors {% if name in active_overrides %}border-amber-400 bg-amber-50{% else %}border-gray-300{% endif %}
+  {%- endmacro -%}
+  <div class="mt-6 bg-white rounded-xl shadow overflow-hidden">
+    <button id="edit-toggle-btn" onclick="toggleEdit()"
+            class="w-full flex items-center justify-between px-6 py-4 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+      <span class="flex items-center gap-2">
+        Éditer la carte
+        {% if active_overrides %}
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+          ◆ {{ active_overrides | length }} correction{{ 's' if active_overrides | length > 1 else '' }}
+        </span>
+        {% endif %}
+      </span>
+      <span id="edit-arrow" class="text-gray-400 text-xs">▼</span>
+    </button>
+
+    <div id="edit-panel" class="hidden border-t border-gray-100">
+      <form id="override-form" class="px-6 py-5 space-y-4">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Nom français</label>
+            <input type="text" name="name_fr"
+                   value="{{ spell['name_fr'] }}"
+                   data-original="{{ original_spell['name_fr'] }}"
+                   class="{{ field_cls('name_fr') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">École</label>
+            <select name="school" data-original="{{ original_spell['school'] }}"
+                    class="{{ field_cls('school') }} bg-white">
+              {% for s in known_schools %}
+              <option value="{{ s }}" {% if spell['school'] == s %}selected{% endif %}>{{ s | capitalize }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Sous-école</label>
+            <input type="text" name="subschool"
+                   value="{{ spell['subschool'] or '' }}"
+                   data-original="{{ original_spell['subschool'] or '' }}"
+                   class="{{ field_cls('subschool') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Descripteurs</label>
+            <input type="text" name="descriptors"
+                   value="{{ spell['descriptors'] or '' }}"
+                   data-original="{{ original_spell['descriptors'] or '' }}"
+                   class="{{ field_cls('descriptors') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Temps d'incantation</label>
+            <input type="text" name="casting_time"
+                   value="{{ spell['casting_time'] or '' }}"
+                   data-original="{{ original_spell['casting_time'] or '' }}"
+                   class="{{ field_cls('casting_time') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Composantes</label>
+            <input type="text" name="components"
+                   value="{{ spell['components'] or '' }}"
+                   data-original="{{ original_spell['components'] or '' }}"
+                   class="{{ field_cls('components') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Portée</label>
+            <input type="text" name="spell_range"
+                   value="{{ spell['spell_range'] or '' }}"
+                   data-original="{{ original_spell['spell_range'] or '' }}"
+                   class="{{ field_cls('spell_range') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Cible</label>
+            <input type="text" name="target"
+                   value="{{ spell['target'] or '' }}"
+                   data-original="{{ original_spell['target'] or '' }}"
+                   class="{{ field_cls('target') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Zone</label>
+            <input type="text" name="area"
+                   value="{{ spell['area'] or '' }}"
+                   data-original="{{ original_spell['area'] or '' }}"
+                   class="{{ field_cls('area') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Durée</label>
+            <input type="text" name="duration"
+                   value="{{ spell['duration'] or '' }}"
+                   data-original="{{ original_spell['duration'] or '' }}"
+                   class="{{ field_cls('duration') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Jet de sauvegarde</label>
+            <input type="text" name="saving_throw"
+                   value="{{ spell['saving_throw'] or '' }}"
+                   data-original="{{ original_spell['saving_throw'] or '' }}"
+                   class="{{ field_cls('saving_throw') }}">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Résistance à la magie</label>
+            <input type="text" name="spell_resistance"
+                   value="{{ spell['spell_resistance'] or '' }}"
+                   data-original="{{ original_spell['spell_resistance'] or '' }}"
+                   class="{{ field_cls('spell_resistance') }}">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Description</label>
+          <textarea name="description_fr" rows="8"
+                    data-original="{{ original_spell['description_fr'] }}"
+                    class="{{ field_cls('description_fr') }} font-mono resize-y leading-relaxed">{{ spell['description_fr'] }}</textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+          <button type="button" onclick="saveOverrides()"
+                  class="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">
+            Sauvegarder les corrections
+          </button>
+          <button type="button" onclick="resetOverrides()"
+                  class="px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+            Réinitialiser{% if active_overrides %} ({{ active_overrides | length }}){% endif %}
+          </button>
+          <span id="save-status" class="hidden text-sm"></span>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Aperçu de la carte -->
   <div class="mt-6 bg-white rounded-xl shadow overflow-hidden">
     <button id="preview-toggle-btn"
@@ -158,6 +290,56 @@
     document.getElementById('card-preview-iframe').src = base + '/card.html?theme=' + theme;
     document.getElementById('card-html-link').href   = base + '/card.html?theme=' + theme;
     document.getElementById('card-pdf-link').href    = base + '/card.pdf?theme='  + theme;
+  };
+
+  window.toggleEdit = function () {
+    var panel = document.getElementById('edit-panel');
+    var arrow = document.getElementById('edit-arrow');
+    var hidden = panel.classList.toggle('hidden');
+    arrow.textContent = hidden ? '▼' : '▲';
+  };
+
+  window.saveOverrides = function () {
+    var form = document.getElementById('override-form');
+    var status = document.getElementById('save-status');
+    var overrides = {};
+
+    form.querySelectorAll('[data-original]').forEach(function (el) {
+      if (el.value !== el.dataset.original) overrides[el.name] = el.value;
+    });
+
+    fetch('/spells/' + slug + '/overrides', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(overrides),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data.ok) throw new Error(data.detail || 'Erreur');
+      form.querySelectorAll('[data-original]').forEach(function (el) {
+        var ov = el.value !== el.dataset.original;
+        el.classList.toggle('border-amber-400', ov);
+        el.classList.toggle('bg-amber-50', ov);
+        el.classList.toggle('border-gray-300', !ov);
+      });
+      var iframe = document.getElementById('card-preview-iframe');
+      if (iframe && iframe.src) { var s = iframe.src; iframe.src = ''; iframe.src = s; }
+      status.textContent = '✓ Corrections sauvegardées';
+      status.className = 'text-sm text-green-600';
+      status.classList.remove('hidden');
+      setTimeout(function () { status.classList.add('hidden'); }, 3000);
+    })
+    .catch(function (err) {
+      status.textContent = '✗ ' + err.message;
+      status.className = 'text-sm text-red-600';
+      status.classList.remove('hidden');
+    });
+  };
+
+  window.resetOverrides = function () {
+    if (!confirm('Réinitialiser toutes les corrections pour ce sort ?')) return;
+    fetch('/spells/' + slug + '/overrides', { method: 'DELETE' })
+      .then(function () { location.reload(); });
   };
 })();
 </script>

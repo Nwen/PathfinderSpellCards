@@ -66,6 +66,36 @@ Ce monstre est très dangereux.
 Il attaque avec ses griffes pour 2d6 dégâts.
 """
 
+# Bug de régression : certains liens wiki utilisent [[Ecole divination]] ou
+# [[Ecole divination|divination]] au lieu de [[divination]].
+ECOLE_PREFIXED_BARE_RAW = """\
+'''École''' [[Ecole divination]]
+'''Niveau''' [[prêtre|Prê]] 2
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V, G]]
+'''Portée''' courte (7,50 m + 1,50 m/2 niveaux)
+'''Cibles''' 1 créature
+'''Durée''' 1 minute/niveau
+'''Jet de sauvegarde''' aucun
+'''Résistance à la magie''' oui
+
+Sort de divination test (lien catégorie sans texte d'affichage).
+"""
+
+ECOLE_PREFIXED_DISPLAY_RAW = """\
+'''École''' [[Ecole divination|divination]]
+'''Niveau''' [[prêtre|Prê]] 3
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V, G, F]]
+'''Portée''' courte
+'''Cibles''' 1 créature
+'''Durée''' instantanée
+'''Jet de sauvegarde''' Volonté annule
+'''Résistance à la magie''' oui
+
+Sort de divination test (lien catégorie avec texte d'affichage).
+"""
+
 # ── Helpers XML pour tests de parse_dump ─────────────────────────────────────
 
 def _make_xml(pages: list[tuple[str, str, str]]) -> str:
@@ -129,22 +159,32 @@ class TestIsSpell:
 
 class TestParseSchool:
     def test_evocation_with_descriptor(self):
-        school, subschool, descriptors = _parse_school(FIREBALL_RAW)
+        school, _, descriptors = _parse_school(FIREBALL_RAW)
         assert school == "évocation"
         assert "feu" in descriptors
 
     def test_universal(self):
-        school, subschool, descriptors = _parse_school(WISH_RAW)
+        school, _, _ = _parse_school(WISH_RAW)
         assert school == "universel"
 
     def test_enchantement_with_subschool(self):
-        school, subschool, descriptors = _parse_school(CHARM_RAW)
+        school, _, descriptors = _parse_school(CHARM_RAW)
         assert school == "enchantement"
         assert "mental" in descriptors
 
     def test_no_school_returns_empty(self):
         school, _, _ = _parse_school(NON_SPELL_RAW)
         assert school == ""
+
+    def test_ecole_prefixed_bare_link(self):
+        # Régression : [[Ecole divination]] doit donner "divination", pas "ecole divination"
+        school, _, _ = _parse_school(ECOLE_PREFIXED_BARE_RAW)
+        assert school == "divination"
+
+    def test_ecole_prefixed_display_link(self):
+        # Régression : [[Ecole divination|divination]] doit donner "divination"
+        school, _, _ = _parse_school(ECOLE_PREFIXED_DISPLAY_RAW)
+        assert school == "divination"
 
 
 # ── Tests : niveaux ───────────────────────────────────────────────────────────
@@ -202,6 +242,28 @@ class TestCleanWiki:
 
     def test_empty_string(self):
         assert _clean_wiki("") == ""
+
+    def test_removes_faq_block(self):
+        text = "Description normale. {s:FAQ|Question ? Réponse.} Suite."
+        result = _clean_wiki(text)
+        assert "{s:FAQ" not in result
+        assert "Question" not in result
+        assert "Réponse" not in result
+        assert "Description normale." in result
+
+    def test_removes_multiline_faq_block(self):
+        faq = "{s:FAQ|→ Q1 ?\n\nRép1.\n\n→ Q2 ?\n\nRép2.}"
+        result = _clean_wiki("Description. " + faq)
+        assert "Q1" not in result
+        assert "Rép1" not in result
+        assert "Description." in result
+
+    def test_removes_faq_block_with_nested_source_marker(self):
+        # {s:APG} imbriqué dans un bloc FAQ ne doit pas casser l'extraction
+        faq = "{s:FAQ|Voir {s:APG} pour les détails.}"
+        result = _clean_wiki("Description. " + faq)
+        assert "Voir" not in result
+        assert "Description." in result
 
 
 # ── Test d'intégration : parse_dump sur XML synthétique ──────────────────────
