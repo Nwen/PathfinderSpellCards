@@ -111,6 +111,68 @@ ECOLE_PREFIXED_DISPLAY_RAW = """\
 Sort de divination test (lien catégorie avec texte d'affichage).
 """
 
+MULTI_SPELL_BLOCK_RAW = """\
+Description générale des sorts de coup mental.
+
+(((Coup mental I
+'''École''' [[enchantement]] ([[registre|émotion]], [[registre|mental]])
+'''Niveau''' [[psychiste|Psy]] 1, [[mesmériste|Mes]] 1
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V]]
+'''Portée''' courte
+'''Cibles''' 1 créature
+'''Durée''' instantanée
+'''Jet de sauvegarde''' Volonté annule
+'''Résistance à la magie''' oui
+
+Ce sort inflige 1d6 dégâts.
+)))
+
+(((Coup mental II
+'''École''' [[enchantement]] ([[registre|émotion]], [[registre|mental]])
+'''Niveau''' [[psychiste|Psy]] 2, [[mesmériste|Mes]] 2
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V]]
+'''Portée''' courte
+'''Cibles''' 1 créature
+'''Durée''' instantanée
+'''Jet de sauvegarde''' Volonté annule
+'''Résistance à la magie''' oui
+
+Ce sort inflige 2d6 dégâts.
+)))
+"""
+
+MULTI_SECTION_RAW = """\
+Les sorts de soins guérissent les blessures.
+
+==Soins légers==
+'''École''' [[invocation]] ([[branche invocation|guérison]])
+'''Niveau''' [[prêtre|Prê]] 1, [[druide|Dru]] 1
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V, G]]
+'''Portée''' contact
+'''Cibles''' créature touchée
+'''Durée''' instantanée
+'''Jet de sauvegarde''' Volonté pour annuler
+'''Résistance à la magie''' oui
+
+Soins légers soigne 1d8+1/niveau.
+
+==Soins modérés==
+'''École''' [[invocation]] ([[branche invocation|guérison]])
+'''Niveau''' [[prêtre|Prê]] 3, [[druide|Dru]] 3
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V, G]]
+'''Portée''' contact
+'''Cibles''' créature touchée
+'''Durée''' instantanée
+'''Jet de sauvegarde''' Volonté pour annuler
+'''Résistance à la magie''' oui
+
+Soins modérés soigne 2d8+1/niveau.
+"""
+
 # ── Helpers XML pour tests de parse_dump ─────────────────────────────────────
 
 def _make_xml(pages: list[tuple[str, str, str]]) -> str:
@@ -437,3 +499,58 @@ class TestParseDump:
         spells = _parse_xml_string(xml)
         assert spells[0].raw_url is not None
         assert "pathfinder-fr.org" in spells[0].raw_url
+
+
+# ── Tests : pages multi-sorts (variantes I/II/III) ───────────────────────────
+
+class TestMultiSpellPage:
+    """Teste l'extraction de plusieurs sorts depuis une page wiki unique."""
+
+    def test_sub_spell_blocks_yield_two_spells(self):
+        xml = _make_xml([
+            ("Pathfinder-RPG.Coup mental", "Pathfinder-RPG.Coup mental", MULTI_SPELL_BLOCK_RAW),
+        ])
+        spells = _parse_xml_string(xml)
+        assert len(spells) == 2
+
+    def test_sub_spell_blocks_names(self):
+        xml = _make_xml([
+            ("Pathfinder-RPG.Coup mental", "Pathfinder-RPG.Coup mental", MULTI_SPELL_BLOCK_RAW),
+        ])
+        spells = _parse_xml_string(xml)
+        slugs = {s.slug_fr for s in spells}
+        assert "coup-mental-i" in slugs
+        assert "coup-mental-ii" in slugs
+
+    def test_sub_spell_blocks_levels(self):
+        xml = _make_xml([
+            ("Pathfinder-RPG.Coup mental", "Pathfinder-RPG.Coup mental", MULTI_SPELL_BLOCK_RAW),
+        ])
+        spells = _parse_xml_string(xml)
+        by_slug = {s.slug_fr: s for s in spells}
+        assert by_slug["coup-mental-i"].level_json.get("psychiste") == 1
+        assert by_slug["coup-mental-ii"].level_json.get("psychiste") == 2
+
+    def test_sections_yield_two_spells(self):
+        xml = _make_xml([
+            ("Pathfinder-RPG.Soins", "Pathfinder-RPG.Soins", MULTI_SECTION_RAW),
+        ])
+        spells = _parse_xml_string(xml)
+        assert len(spells) == 2
+
+    def test_sections_names(self):
+        xml = _make_xml([
+            ("Pathfinder-RPG.Soins", "Pathfinder-RPG.Soins", MULTI_SECTION_RAW),
+        ])
+        spells = _parse_xml_string(xml)
+        slugs = {s.slug_fr for s in spells}
+        assert "soins-legers" in slugs
+        assert "soins-moderes" in slugs
+
+    def test_single_block_not_double_parsed(self):
+        # Une page avec un seul sort normal ne doit pas être dupliquée
+        xml = _make_xml([
+            ("Pathfinder-RPG.Boule de feu", "Pathfinder-RPG.Boule de feu", FIREBALL_RAW),
+        ])
+        spells = _parse_xml_string(xml)
+        assert len(spells) == 1

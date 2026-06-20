@@ -206,22 +206,15 @@ def parse_dump(xml_path: str) -> list[SpellData]:
         return _parse_page_element(root)
 
     spells: list[SpellData] = []
-    errors = 0
     for page in _iter_pages(root):
         title = _get_field(page, "title", "Title", "name") or ""
         raw = _get_field(page, "raw", "Raw", "text")
         full_name = _get_field(page, "fullName", "FullName")
         if not raw or not _is_spell(raw):
             continue
-        try:
-            spell = _parse_spell(title, raw, full_name)
-            if spell:
-                spells.append(spell)
-        except Exception as exc:
-            errors += 1
-            log.debug("Erreur parsing '%s' : %s", title, exc)
+        spells.extend(_parse_raw(title, raw, full_name))
 
-    log.info("Sorts parsés : %d (%d erreurs)", len(spells), errors)
+    log.info("Sorts parsés : %d", len(spells))
     return spells
 
 
@@ -269,12 +262,7 @@ def _parse_page_element(root: ET.Element) -> list[SpellData]:
         return []
 
     full_name = f"Pathfinder-RPG.{title}"
-    try:
-        spell = _parse_spell(title, raw, full_name)
-        return [spell] if spell else []
-    except Exception as exc:
-        log.debug("Erreur parsing '%s' : %s", title, exc)
-        return []
+    return _parse_raw(title, raw, full_name)
 
 
 # ── Helpers XML ───────────────────────────────────────────────────────────────
@@ -462,6 +450,11 @@ def _extract_source(raw: str) -> str | None:
 
 _SUB_SPELL_START = re.compile(r"\n\(\(\(|\n==[^=]")
 
+# Blocs de sous-sorts inline : (((Nom du sort\ncontent\n)))
+_SUB_SPELL_BLOCK_RE = re.compile(r"\(\(\(([^\n]+)\n(.*?)\)\)\)", re.DOTALL)
+# Sections ==Titre== dans une page multi-sorts
+_SECTION_RE = re.compile(r"\n==([^=][^=]*?)==[ \t]*\n")
+
 
 def _extract_description(raw: str) -> str:
     """Extrait la description principale, avant les variantes embarquées."""
@@ -477,6 +470,63 @@ def _extract_description(raw: str) -> str:
     if last_end == 0:
         return body
     return body[last_end:].strip()
+
+
+# ── Parsers multi-sorts (pages avec variantes) ───────────────────────────────
+
+def _try_sub_spell_blocks(title: str, raw: str, full_name: str | None) -> list[SpellData]:
+    """Extrait les sous-sorts depuis des blocs (((Nom\ncontent\n))) dans une page."""
+    results: list[SpellData] = []
+    for m in _SUB_SPELL_BLOCK_RE.finditer(raw):
+        sub_name = m.group(1).strip()
+        sub_raw = m.group(2)
+        if not _is_spell(sub_raw):
+            continue
+        try:
+            spell = _parse_spell(sub_name, sub_raw, full_name)
+            if spell:
+                results.append(spell)
+        except Exception as exc:
+            log.debug("Erreur parsing sous-sort '%s' dans '%s' : %s", sub_name, title, exc)
+    return results
+
+
+def _try_sections(title: str, raw: str, full_name: str | None) -> list[SpellData]:
+    """Extrait les sous-sorts depuis des sections ==Titre== dans une page."""
+    matches = list(_SECTION_RE.finditer(raw))
+    if not matches:
+        return []
+    results: list[SpellData] = []
+    for i, m in enumerate(matches):
+        section_name = re.sub(r"\s*[\(:].*", "", m.group(1)).strip()
+        start = m.end()
+        end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
+        section_raw = raw[start:end]
+        if not _is_spell(section_raw):
+            continue
+        try:
+            spell = _parse_spell(section_name, section_raw, full_name)
+            if spell:
+                results.append(spell)
+        except Exception as exc:
+            log.debug("Erreur parsing section '%s' dans '%s' : %s", section_name, title, exc)
+    return results
+
+
+def _parse_raw(title: str, raw: str, full_name: str | None) -> list[SpellData]:
+    """Parse le contenu brut d'une page ; retourne 0, 1 ou plusieurs sorts."""
+    results = _try_sub_spell_blocks(title, raw, full_name)
+    if results:
+        return results
+    results = _try_sections(title, raw, full_name)
+    if results:
+        return results
+    try:
+        spell = _parse_spell(title, raw, full_name)
+        return [spell] if spell else []
+    except Exception as exc:
+        log.debug("Erreur parsing '%s' : %s", title, exc)
+        return []
 
 
 # ── Nettoyage du markup wiki ──────────────────────────────────────────────────
