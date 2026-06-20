@@ -49,8 +49,8 @@ COPY scripts/ ./scripts/
 
 VOLUME ["/app/data"]
 
-ENV PORT=8000 \
-    BASE_URL="http://localhost:8000" \
+ENV PORT=8974 \
+    BASE_URL="http://localhost:8974" \
     DATABASE_URL="sqlite:////app/data/spells.db" \
     DATA_DIR="/app/data" \
     PYTHONPATH="/app" \
@@ -62,4 +62,4 @@ EXPOSE ${PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m uvicorn src.main:app --host 0.0.0.0 --port ${PORT}"]
