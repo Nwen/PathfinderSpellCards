@@ -119,6 +119,7 @@ def school_icon_html(school: str, css_class: str = "w-3.5 h-3.5 inline-block",
     )
 
 KNOWN_CLASSES: list[str] = [
+    # Livre de base / APG
     "alchimiste",
     "antipaladin",
     "barde",
@@ -133,11 +134,26 @@ KNOWN_CLASSES: list[str] = [
     "prêtre",
     "rôdeur",
     "sorcière",
+    # Advanced Class Guide
+    "arcaniste",
+    "chaman",
+    "chasseur",
+    "investigateur",
+    "prêtre combattant",
+    "sanguin",
+    "skald",
+    # Occult Adventures
+    "mesmériste",
+    "médium",
+    "occultiste",
+    "psychiste",
+    "spirite",
 ]
 
 KNOWN_SCHOOLS: list[str] = sorted(SCHOOL_COLORS.keys())
 
 CLASS_ABBREV: dict[str, str] = {
+    # Livre de base / APG
     "alchimiste": "Alc",
     "antipaladin": "Ant",
     "barde": "Bar",
@@ -152,6 +168,20 @@ CLASS_ABBREV: dict[str, str] = {
     "prêtre": "Prê",
     "rôdeur": "Rôd",
     "sorcière": "Sor",
+    # Advanced Class Guide
+    "arcaniste": "Arc",
+    "chaman": "Cha",
+    "chasseur": "Chs",
+    "investigateur": "Inv",
+    "prêtre combattant": "PrC",
+    "sanguin": "San",
+    "skald": "Ska",
+    # Occult Adventures
+    "mesmériste": "Mes",
+    "médium": "Méd",
+    "occultiste": "Occ",
+    "psychiste": "Psy",
+    "spirite": "Spi",
 }
 
 # ── Connexion ─────────────────────────────────────────────────────────────────

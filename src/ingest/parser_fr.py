@@ -122,6 +122,7 @@ _SCHOOL_MAP: dict[str, str] = {
 }
 
 _CLASS_MAP: dict[str, str] = {
+    # ── Livre de base / APG ───────────────────────────────────────────────────
     "barde": "barde",
     "ensorceleur": "ensorceleur",
     "magicien": "magicien",
@@ -141,6 +142,23 @@ _CLASS_MAP: dict[str, str] = {
     "oracle": "oracle",
     "magus": "magus",
     "antipaladin": "antipaladin",
+    # ── Advanced Class Guide (ACG) ────────────────────────────────────────────
+    "arcaniste": "arcaniste",
+    "chaman": "chaman",
+    "chasseur": "chasseur",
+    "skald": "skald",
+    "sanguin": "sanguin",
+    "prêtre combattant": "prêtre combattant",
+    "pretre combattant": "prêtre combattant",
+    "investigateur": "investigateur",
+    # ── Occult Adventures (OA) ────────────────────────────────────────────────
+    "psychiste": "psychiste",
+    "occultiste": "occultiste",
+    "médium": "médium",
+    "medium": "médium",
+    "mesmériste": "mesmériste",
+    "mesmeriste": "mesmériste",
+    "spirite": "spirite",
 }
 
 
@@ -231,11 +249,14 @@ def _parse_directory(dir_path: "Path") -> list[SpellData]:
 
 def _parse_page_element(root: ET.Element) -> list[SpellData]:
     """Parse un élément <wikiPage> racine et retourne 0 ou 1 SpellData."""
-    # Pré-filtre rapide via les catégories
+    # Pré-filtre rapide via les catégories : accepte tout ce qui contient le mot "sort"
+    # (avec frontière de mot) pour couvrir "Sort", "Sort psychique", "Pathfinder-RPG.Sort…"
     categories = root.find("categories")
     if categories is not None:
-        cat_text = " ".join(c.text or "" for c in categories.findall("category"))
-        if ".Sort" not in cat_text:
+        cat_texts = [c.text or "" for c in categories.findall("category")]
+        if cat_texts and not any(
+            re.search(r"\bsort\b", t, re.IGNORECASE) for t in cat_texts
+        ):
             return []
 
     title_el = root.find("title")
@@ -468,10 +489,63 @@ _EXTRA_SPACES = re.compile(r" {2,}")
 _EXTRA_NEWLINES = re.compile(r"\n{3,}")
 # Blocs FAQ : {s:FAQ|...} — le contenu peut contenir des {s:XX} imbriqués (un niveau)
 _FAQ_BLOCK = re.compile(r"\{s:FAQ\|(?:[^{}]|\{[^{}]*\})*\}", re.DOTALL | re.IGNORECASE)
+# Tableaux wiki : {|...|} — traités en dernier, après nettoyage du contenu des cellules
+_WIKI_TABLE_RE = re.compile(r"\{\|.*?\|\}", re.DOTALL)
+
+
+def _wiki_table_to_html(m: re.Match) -> str:
+    """Convertit un tableau wiki {|...|} en <table class="wiki-table"> HTML."""
+    lines = m.group(0).splitlines()
+    rows: list[list[str]] = []
+    cur: list[str] = []
+    is_header_row = False
+
+    for line in lines:
+        s = line.strip()
+        if not s or s.startswith("{|") or s.startswith("|+"):
+            continue
+        if s.startswith("|}"):
+            if cur:
+                rows.append(cur)
+            break
+        if s.startswith("|-"):
+            if cur:
+                rows.append(cur)
+                cur = []
+            cls_lower = s.lower()
+            is_header_row = "titre" in cls_lower or "soustitre" in cls_lower
+            continue
+        if s.startswith("!") or s.startswith("|"):
+            is_th = s.startswith("!")
+            sep = "!!" if is_th else "||"
+            for raw in s[1:].split(sep):
+                raw = raw.strip()
+                attrs: dict[str, str] = {}
+                if "|" in raw:
+                    attr_part, content = raw.split("|", 1)
+                    content = content.strip()
+                    for am in re.finditer(r"(?i)(rowspan|colspan)=[\"']?(\d+)[\"']?", attr_part):
+                        attrs[am.group(1).lower()] = am.group(2)
+                else:
+                    content = raw
+                tag = "th" if (is_th or is_header_row) else "td"
+                attr_str = "".join(f' {k}="{v}"' for k, v in attrs.items())
+                cur.append(f"<{tag}{attr_str}>{content}</{tag}>")
+
+    if cur:
+        rows.append(cur)
+    if not rows:
+        return ""
+
+    parts = ["<table class=\"wiki-table\">"]
+    for row in rows:
+        parts.append("<tr>" + "".join(row) + "</tr>")
+    parts.append("</table>")
+    return "".join(parts)
 
 
 def _clean_wiki(text: str) -> str:
-    """Supprime le markup wiki et retourne du texte lisible."""
+    """Supprime le markup wiki et retourne du texte lisible (avec HTML pour les tableaux)."""
     if not text:
         return ""
     text = _FAQ_BLOCK.sub("", text)  # doit précéder les autres substitutions
@@ -485,4 +559,6 @@ def _clean_wiki(text: str) -> str:
     text = html.unescape(text)
     text = _EXTRA_SPACES.sub(" ", text)
     text = _EXTRA_NEWLINES.sub("\n\n", text)
+    # Tableaux wiki en dernier : le contenu des cellules a déjà été nettoyé
+    text = _WIKI_TABLE_RE.sub(_wiki_table_to_html, text)
     return text.strip()

@@ -68,8 +68,14 @@
   <!-- Description -->
   <div class="bg-white rounded-xl shadow p-6">
     <h2 class="text-base font-semibold text-gray-700 mb-3">Description</h2>
-    <div class="text-gray-800 leading-relaxed whitespace-pre-wrap text-sm">{{ spell['description_fr'] }}</div>
+    <div class="text-gray-800 leading-relaxed text-sm spell-description">{{ spell['description_fr'] | desc_html | safe }}</div>
   </div>
+
+  <style>
+  .spell-description .wiki-table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; font-size: 0.8rem; }
+  .spell-description .wiki-table td, .spell-description .wiki-table th { border: 1px solid #d1d5db; padding: 4px 8px; text-align: left; vertical-align: top; }
+  .spell-description .wiki-table th { background: #f3f4f6; font-weight: 600; }
+  </style>
 
   <!-- Éditer la carte -->
   {%- macro field_cls(name) -%}

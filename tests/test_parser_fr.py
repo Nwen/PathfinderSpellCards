@@ -9,6 +9,7 @@ import pytest
 from src.ingest.parser_fr import (
     _clean_wiki,
     _is_spell,
+    _parse_page_element,
     _parse_school,
     _parse_levels,
     _slugify,
@@ -68,6 +69,20 @@ Il attaque avec ses griffes pour 2d6 dégâts.
 
 # Bug de régression : certains liens wiki utilisent [[Ecole divination]] ou
 # [[Ecole divination|divination]] au lieu de [[divination]].
+PSYCHIC_RAW = """\
+'''École''' [[enchantement]] ([[registre|émotion]], [[registre|mental]])
+'''Niveau''' [[psychiste|Psy]] 1, [[mesmériste|Mes]] 1
+'''Temps d'incantation''' 1 [[action simple]]
+'''Composantes''' [[COMPOSANTES|V]]
+'''Portée''' courte (7,50 m + 1,50 m/2 niveaux)
+'''Cibles''' 1 créature
+'''Durée''' instantanée
+'''Jet de sauvegarde''' Volonté annule
+'''Résistance à la magie''' oui
+
+Sort de psychiste test.
+"""
+
 ECOLE_PREFIXED_BARE_RAW = """\
 '''École''' [[Ecole divination]]
 '''Niveau''' [[prêtre|Prê]] 2
@@ -264,6 +279,115 @@ class TestCleanWiki:
         result = _clean_wiki("Description. " + faq)
         assert "Voir" not in result
         assert "Description." in result
+
+    def test_wiki_table_converted_to_html(self):
+        table = """\
+{| CLASS="tablo"
+|-
+| Cellule A || Cellule B
+|-
+| Cellule C || Cellule D
+|}"""
+        result = _clean_wiki("Avant.\n" + table + "\nAprès.")
+        assert "<table" in result
+        assert "Cellule A" in result
+        assert "Cellule B" in result
+        assert "{|" not in result
+
+    def test_wiki_table_header_rows_use_th(self):
+        table = """\
+{| CLASS="tablo"
+|- CLASS="titre"
+| Col1 || Col2
+|-
+| Val1 || Val2
+|}"""
+        result = _clean_wiki(table)
+        assert "<th>" in result
+        assert "<td>" in result
+
+    def test_wiki_table_cell_attributes(self):
+        table = """\
+{| CLASS="tablo"
+|-
+| ROWSPAN="2" | Cellule fusionnée || Simple
+|}"""
+        result = _clean_wiki(table)
+        assert 'rowspan="2"' in result
+        assert "Cellule fusionnée" in result
+
+    def test_wiki_table_links_in_cells_cleaned(self):
+        table = """\
+{| CLASS="tablo"
+|-
+| [[évocation]] || [[Présentation des sorts#aura|Aura faible]]
+|}"""
+        result = _clean_wiki(table)
+        assert "évocation" in result
+        assert "Aura faible" in result
+        assert "[[" not in result
+
+
+# ── Tests : filtre catégories ────────────────────────────────────────────────
+
+class TestCategoryFilter:
+    """Teste _parse_page_element avec différents formats de catégories."""
+
+    def _page(self, title: str, raw: str, categories: list[str] | None = None):
+        root = ET.Element("wikiPage")
+        ET.SubElement(root, "title").text = title
+        ET.SubElement(root, "fullName").text = title
+        ET.SubElement(root, "raw").text = raw
+        if categories is not None:
+            cats_el = ET.SubElement(root, "categories")
+            for c in categories:
+                ET.SubElement(cats_el, "category").text = c
+        return root
+
+    def test_bare_sort_category_passes(self):
+        # "Sort" sans préfixe — était rejeté avec l'ancien filtre ".Sort"
+        page = self._page("Pathfinder-RPG.Boule de feu", FIREBALL_RAW, ["Sort"])
+        assert len(_parse_page_element(page)) == 1
+
+    def test_sort_psychique_category_passes(self):
+        page = self._page("Pathfinder-RPG.Boule de feu", FIREBALL_RAW, ["Sort psychique"])
+        assert len(_parse_page_element(page)) == 1
+
+    def test_namespaced_sort_category_passes(self):
+        page = self._page("Pathfinder-RPG.Boule de feu", FIREBALL_RAW, ["Pathfinder-RPG.Sort"])
+        assert len(_parse_page_element(page)) == 1
+
+    def test_non_spell_category_filtered(self):
+        # Une page sans aucune catégorie "sort" est rejetée
+        page = self._page("Pathfinder-RPG.Monstre", NON_SPELL_RAW, ["Monstre", "PNJ"])
+        assert len(_parse_page_element(page)) == 0
+
+    def test_no_categories_element_passes(self):
+        # Pas d'élément <categories> → le filtre est ignoré
+        page = self._page("Pathfinder-RPG.Boule de feu", FIREBALL_RAW)
+        assert len(_parse_page_element(page)) == 1
+
+
+# ── Tests : classes Occult Adventures ────────────────────────────────────────
+
+class TestPsychicClasses:
+    def test_psychic_levels_stored(self):
+        levels = _parse_levels(PSYCHIC_RAW)
+        assert levels.get("psychiste") == 1
+        assert levels.get("mesmériste") == 1
+
+    def test_psychic_school_parsed(self):
+        school, _, _ = _parse_school(PSYCHIC_RAW)
+        assert school == "enchantement"
+
+    def test_psychic_spell_in_dump(self):
+        xml = _make_xml([("Pathfinder-RPG.Coup mental I", "Pathfinder-RPG.Coup mental I", PSYCHIC_RAW)])
+        spells = _parse_xml_string(xml)
+        assert len(spells) == 1
+        assert spells[0].slug_fr == "coup-mental-i"
+        lvl = spells[0].level_json
+        assert lvl.get("psychiste") == 1
+        assert lvl.get("mesmériste") == 1
 
 
 # ── Test d'intégration : parse_dump sur XML synthétique ──────────────────────

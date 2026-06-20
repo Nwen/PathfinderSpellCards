@@ -5,7 +5,9 @@ Le dict context ne doit PAS inclure 'request' (géré en premier argument).
 """
 from __future__ import annotations
 
+import html as _html_stdlib
 import json
+import re as _re
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -20,6 +22,29 @@ router = APIRouter()
 _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+_TABLE_SPLIT_RE = _re.compile(r"(<table[\s\S]*?</table>)", _re.IGNORECASE)
+
+
+def _desc_html(text: str) -> str:
+    """Prépare une description pour le rendu HTML.
+
+    Les blocs <table> (issus des tableaux wiki) sont conservés tels quels.
+    Le reste est échappé et les sauts de ligne convertis en <br>.
+    """
+    if not text:
+        return ""
+    parts = _TABLE_SPLIT_RE.split(text)
+    out: list[str] = []
+    for i, part in enumerate(parts):
+        if i % 2 == 0:  # texte brut
+            escaped = _html_stdlib.escape(part)
+            escaped = escaped.replace("\n\n", "<br><br>").replace("\n", " ")
+            out.append(escaped)
+        else:  # bloc <table>
+            out.append(part)
+    return "".join(out)
+
+
 # ── Filtres Jinja2 (ne brisent pas le cache LRU Jinja2 3.1.2+) ───────────────
 templates.env.filters["school_color"] = lambda s: db.SCHOOL_COLORS.get(s, "#888")
 templates.env.filters["school_icon"] = lambda s: db.school_icon_html(s)
@@ -28,6 +53,7 @@ templates.env.filters["jsonparse"] = json.loads
 templates.env.filters["urlencode_filters"] = lambda f: urlencode(
     {k: v for k, v in f.items() if v != "" and v is not None}
 )
+templates.env.filters["desc_html"] = _desc_html
 
 
 def _ctx(**kwargs) -> dict:
