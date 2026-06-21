@@ -190,8 +190,8 @@
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Description</label>
           <textarea name="description_fr" rows="8"
-                    data-original="{{ original_spell['description_fr'] }}"
-                    class="{{ field_cls('description_fr') }} font-mono resize-y leading-relaxed">{{ spell['description_fr'] }}</textarea>
+                    data-original="{{ original_spell['description_fr'] | e }}"
+                    class="{{ field_cls('description_fr') }} font-mono resize-y leading-relaxed">{{ spell['description_fr'] | e }}</textarea>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 pt-1">
@@ -293,8 +293,9 @@
   window.updateCardPreview = function () {
     var theme = document.getElementById('card-theme-select').value;
     var base = '/spells/' + slug;
-    document.getElementById('card-preview-iframe').src = base + '/card.html?theme=' + theme;
-    document.getElementById('card-html-link').href   = base + '/card.html?theme=' + theme;
+    var ts = Date.now();
+    document.getElementById('card-preview-iframe').src = base + '/card.html?theme=' + theme + '&t=' + ts;
+    document.getElementById('card-html-link').href   = base + '/card.html?theme=' + theme + '&t=' + ts;
     document.getElementById('card-pdf-link').href    = base + '/card.pdf?theme='  + theme;
   };
 
@@ -328,8 +329,13 @@
         el.classList.toggle('bg-amber-50', ov);
         el.classList.toggle('border-gray-300', !ov);
       });
+      var ts = Date.now();
+      var theme = document.getElementById('card-theme-select').value;
+      var base = '/spells/' + slug;
       var iframe = document.getElementById('card-preview-iframe');
-      if (iframe && iframe.src) { var s = iframe.src; iframe.src = ''; iframe.src = s; }
+      if (iframe) { iframe.src = base + '/card.html?theme=' + theme + '&t=' + ts; }
+      var htmlLink = document.getElementById('card-html-link');
+      if (htmlLink) { htmlLink.href = base + '/card.html?theme=' + theme + '&t=' + ts; }
       status.textContent = '✓ Corrections sauvegardées';
       status.className = 'text-sm text-green-600';
       status.classList.remove('hidden');

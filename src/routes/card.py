@@ -85,7 +85,11 @@ def spell_card_html(slug: str, theme: str = Query("sobre")):
     if spell is None:
         return Response(status_code=404, content=b"Sort introuvable")
     html = _render_card_html(_prepare_spell(spell), theme=_validate_theme(theme))
-    return Response(content=html.encode(), media_type="text/html; charset=utf-8")
+    return Response(
+        content=html.encode(),
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @router.get("/spells/{slug}/card.pdf")
@@ -110,5 +114,8 @@ def spell_card_pdf(slug: str, theme: str = Query("sobre")):
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'inline; filename="{slug}.pdf"'},
+        headers={
+            "Content-Disposition": f'inline; filename="{slug}.pdf"',
+            "Cache-Control": "no-store, max-age=0",
+        },
     )

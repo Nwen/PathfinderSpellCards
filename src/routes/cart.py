@@ -27,6 +27,9 @@ def _prepare_spell(row) -> dict:
         spell["levels"] = json.loads(spell.get("level_json") or "{}")
     except (json.JSONDecodeError, TypeError):
         spell["levels"] = {}
+    slug = spell.get("slug_fr", "")
+    if slug:
+        spell = db.apply_overrides(spell, db.get_overrides(slug))
     return spell
 
 
@@ -60,7 +63,11 @@ def spell_sheet_html(slugs: str = Query(default=""), theme: str = Query("sobre")
     if not spells:
         return Response(status_code=404, content="Aucun sort trouvé".encode())
     html = _render_sheet_html(spells, theme=_validate_theme(theme))
-    return Response(content=html.encode(), media_type="text/html; charset=utf-8")
+    return Response(
+        content=html.encode(),
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @router.get("/sheet.pdf")
@@ -91,5 +98,8 @@ def spell_sheet_pdf(slugs: str = Query(default=""), theme: str = Query("sobre"))
     return Response(
         content=pdf,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="planche.pdf"'},
+        headers={
+            "Content-Disposition": 'inline; filename="planche.pdf"',
+            "Cache-Control": "no-store, max-age=0",
+        },
     )
