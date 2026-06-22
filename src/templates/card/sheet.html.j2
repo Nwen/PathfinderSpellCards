@@ -198,7 +198,7 @@ html, body {
           {{ spell['school'] | capitalize }}
           {%- if spell['subschool'] %} · {{ spell['subschool'] }}{% endif %}
         </span>
-        <span class="levels">{{ spell['level_json'] | format_levels }}</span>
+        <span class="levels">{{ spell['level_json'] | format_level_compact }}</span>
       </div>
       <div class="spell-name">{{ spell['name_fr'] }}</div>
       {% if spell['descriptors'] %}

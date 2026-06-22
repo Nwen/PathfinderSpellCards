@@ -17,10 +17,17 @@
     <div class="p-6">
       <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
-          <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full text-white mb-2"
-                style="background-color: {{ spell['school'] | school_color }};">
-            {{ spell['school'] | school_icon | safe }}{{ spell['school'] | capitalize }}{% if spell['subschool'] %} ({{ spell['subschool'] }}){% endif %}
-          </span>
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full text-white"
+                  style="background-color: {{ spell['school'] | school_color }};">
+              {{ spell['school'] | school_icon | safe }}{{ spell['school'] | capitalize }}{% if spell['subschool'] %} ({{ spell['subschool'] }}){% endif %}
+            </span>
+            {% if spell.get('is_custom') %}
+            <span class="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-violet-100 text-violet-700">
+              ✦ Sort personnalisé
+            </span>
+            {% endif %}
+          </div>
           <h1 class="text-3xl font-bold text-gray-900">{{ spell['name_fr'] }}</h1>
           {% if spell['descriptors'] %}
           <p class="text-sm text-gray-500 mt-1">[{{ spell['descriptors'] }}]</p>
@@ -76,6 +83,20 @@
   .spell-description .wiki-table td, .spell-description .wiki-table th { border: 1px solid #d1d5db; padding: 4px 8px; text-align: left; vertical-align: top; }
   .spell-description .wiki-table th { background: #f3f4f6; font-weight: 600; }
   </style>
+
+  {% if spell.get('is_custom') %}
+  <!-- Actions sort personnalisé -->
+  <div class="mt-4 flex flex-wrap gap-3">
+    <a href="/spells/{{ spell['slug_fr'] | e }}/edit"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors">
+      ✎ Modifier le sort
+    </a>
+    <button onclick="deleteCustomSpell()"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-red-300 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors">
+      ✕ Supprimer le sort
+    </button>
+  </div>
+  {% endif %}
 
   <!-- Éditer la carte -->
   {%- macro field_cls(name) -%}
@@ -352,6 +373,17 @@
     if (!confirm('Réinitialiser toutes les corrections pour ce sort ?')) return;
     fetch('/spells/' + slug + '/overrides', { method: 'DELETE' })
       .then(function () { location.reload(); });
+  };
+
+  window.deleteCustomSpell = function () {
+    if (!confirm('Supprimer définitivement ce sort personnalisé ? Cette action est irréversible.')) return;
+    fetch('/spells/' + slug, { method: 'DELETE' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) { window.location.href = '/spells'; }
+        else { alert('Erreur : ' + (data.error || 'inconnue')); }
+      })
+      .catch(function () { alert('Erreur réseau.'); });
   };
 })();
 </script>

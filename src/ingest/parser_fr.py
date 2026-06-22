@@ -29,7 +29,7 @@ _EOL = r"(?:\n|<br\s*/?>)"
 
 # ── Patterns de champs ────────────────────────────────────────────────────────
 SCHOOL_RE = re.compile(
-    r"'''[ÉEée]cole'''\s+"
+    r"'''\s*[ÉEée]cole\s*'''\s*"
     r"(?:"
     r"\[\[[^\]|#]*(?:#[^\]|]*)?\|([^\]]+)\]\]"  # group 1: [[any|DISPLAY]]
     r"|\[\[([^\]|#]+)(?:#[^\]|]+)?\]\]"           # group 2: [[LINK]]
@@ -313,7 +313,7 @@ def _element_text(el: ET.Element) -> str:
 # ── Détection de sort ─────────────────────────────────────────────────────────
 def _is_spell(raw: str) -> bool:
     """Vrai si le markup brut ressemble à une page de sort."""
-    return bool(re.search(r"'''[ÉEée]cole'''", raw, re.IGNORECASE))
+    return bool(re.search(r"'''\s*[ÉEée]cole\s*'''", raw, re.IGNORECASE))
 
 
 # ── Parsing d'un sort ─────────────────────────────────────────────────────────
@@ -480,6 +480,12 @@ def _try_sub_spell_blocks(title: str, raw: str, full_name: str | None) -> list[S
     for m in _SUB_SPELL_BLOCK_RE.finditer(raw):
         sub_name = m.group(1).strip()
         sub_raw = m.group(2)
+        # If sub_name is a template call {s:...} or wikilink [[...]], it's not a spell name —
+        # the block contains sections instead; delegate to section parser.
+        if sub_name.startswith("{s:") or sub_name.startswith("[["):
+            # Prepend \n so _SECTION_RE (requires leading \n) matches the very first section
+            results.extend(_try_sections(title, "\n" + sub_raw, full_name))
+            continue
         if not _is_spell(sub_raw):
             continue
         try:
@@ -499,6 +505,8 @@ def _try_sections(title: str, raw: str, full_name: str | None) -> list[SpellData
     results: list[SpellData] = []
     for i, m in enumerate(matches):
         section_name = re.sub(r"\s*[\(:].*", "", m.group(1)).strip()
+        # Strip wikilink markup: [[Link|Display]] → Display, [[Link]] → Link
+        section_name = re.sub(r"\[\[(?:[^\]|]*\|)?([^\]]+)\]\]", r"\1", section_name).strip()
         start = m.end()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(raw)
         section_raw = raw[start:end]
@@ -517,6 +525,17 @@ def _parse_raw(title: str, raw: str, full_name: str | None) -> list[SpellData]:
     """Parse le contenu brut d'une page ; retourne 0, 1 ou plusieurs sorts."""
     results = _try_sub_spell_blocks(title, raw, full_name)
     if results:
+        # Also parse the leading spell that appears before the sub-block/section markers
+        stop = _SUB_SPELL_START.search(raw)
+        if stop:
+            lead_raw = raw[: stop.start()]
+            if _is_spell(lead_raw):
+                try:
+                    lead = _parse_spell(title, lead_raw, full_name)
+                    if lead:
+                        results = [lead] + results
+                except Exception:
+                    pass
         return results
     results = _try_sections(title, raw, full_name)
     if results:

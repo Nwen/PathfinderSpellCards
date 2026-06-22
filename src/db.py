@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import unicodedata
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -247,6 +248,21 @@ def init_db() -> None:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+        # Migration: is_custom column (ignored if already present)
+        try:
+            conn.execute("ALTER TABLE spells ADD COLUMN is_custom INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+
+
+# ── Helpers internes ──────────────────────────────────────────────────────────
+def _slugify(text: str) -> str:
+    text = unicodedata.normalize("NFKD", text)
+    text = text.encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = re.sub(r"[^\w\s-]", "", text)
+    text = re.sub(r"[\s_]+", "-", text)
+    return text.strip("-") or "sort"
 
 
 # ── Compteurs ─────────────────────────────────────────────────────────────────
@@ -324,7 +340,7 @@ def list_spells(
             f"""
             SELECT id, slug_fr, name_fr, school, subschool, descriptors,
                    level_json, components, casting_time, spell_range,
-                   duration, is_ogl, source
+                   duration, is_ogl, is_custom, source
             FROM spells
             WHERE {where}
             ORDER BY name_fr COLLATE NOCASE
@@ -396,6 +412,56 @@ def apply_overrides(spell: "sqlite3.Row | dict", overrides: dict) -> dict:
     return result
 
 
+# ── Sorts personnalisés ───────────────────────────────────────────────────────
+_CUSTOM_FIELDS = (
+    "name_fr", "school", "subschool", "descriptors", "level_json",
+    "casting_time", "components", "spell_range", "target", "area",
+    "duration", "saving_throw", "spell_resistance", "description_fr",
+)
+
+
+def _extract_custom(data: dict) -> tuple:
+    return tuple(data.get(f, "") or "" for f in _CUSTOM_FIELDS)
+
+
+def create_custom_spell(data: dict) -> str:
+    base = _slugify(data.get("name_fr", "") or "sort")
+    slug = base
+    with get_conn() as conn:
+        i = 1
+        while conn.execute("SELECT 1 FROM spells WHERE slug_fr = ?", (slug,)).fetchone():
+            i += 1
+            slug = f"{base}-{i}"
+        conn.execute(
+            """INSERT INTO spells
+               (slug_fr, name_fr, school, subschool, descriptors, level_json,
+                casting_time, components, spell_range, target, area,
+                duration, saving_throw, spell_resistance, description_fr,
+                is_ogl, is_custom)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)""",
+            (slug,) + _extract_custom(data),
+        )
+    return slug
+
+
+def update_custom_spell(slug: str, data: dict) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            """UPDATE spells SET
+               name_fr=?, school=?, subschool=?, descriptors=?, level_json=?,
+               casting_time=?, components=?, spell_range=?, target=?, area=?,
+               duration=?, saving_throw=?, spell_resistance=?, description_fr=?,
+               updated_at=CURRENT_TIMESTAMP
+               WHERE slug_fr=? AND is_custom=1""",
+            _extract_custom(data) + (slug,),
+        )
+
+
+def delete_custom_spell(slug: str) -> None:
+    with get_conn() as conn:
+        conn.execute("DELETE FROM spells WHERE slug_fr=? AND is_custom=1", (slug,))
+
+
 # ── Helpers template ──────────────────────────────────────────────────────────
 def format_levels(level_json_str: str) -> str:
     """Formate le JSON de niveaux en texte lisible : 'Ens/Mag 3, Bar 3'."""
@@ -416,3 +482,15 @@ def format_levels(level_json_str: str) -> str:
         parts.append(f"{abbrevs} {lvl}")
 
     return ", ".join(parts)
+
+
+def format_level_compact(level_json_str: str) -> str:
+    """Retourne uniquement le(s) niveau(x) sans nom de classe, ex: 'Niv. 3' ou 'Niv. 1 · 3'."""
+    try:
+        levels: dict[str, int] = json.loads(level_json_str or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return ""
+    unique = sorted(set(levels.values()))
+    if not unique:
+        return ""
+    return "Niv. " + " · ".join(str(v) for v in unique)

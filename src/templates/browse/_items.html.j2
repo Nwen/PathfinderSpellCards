@@ -29,10 +29,15 @@
     <div class="p-4">
       <!-- École + niveaux -->
       <div class="flex items-start justify-between gap-2 mb-1">
-        <span class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full text-white"
-              style="background-color: {{ spell['school'] | school_color }};">
-          {{ spell['school'] | school_icon | safe }}{{ spell['school'] | capitalize }}
-        </span>
+        <div class="flex flex-wrap gap-1">
+          <span class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full text-white"
+                style="background-color: {{ spell['school'] | school_color }};">
+            {{ spell['school'] | school_icon | safe }}{{ spell['school'] | capitalize }}
+          </span>
+          {% if spell['is_custom'] %}
+          <span class="inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">✦</span>
+          {% endif %}
+        </div>
         <span class="text-xs text-gray-400 shrink-0">
           {{ spell['level_json'] | format_levels }}
         </span>

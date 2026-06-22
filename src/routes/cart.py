@@ -19,6 +19,7 @@ _TEMPLATES_DIR = Path(__file__).parent.parent / "templates"
 _templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 _templates.env.filters["school_color"] = lambda s: db.SCHOOL_COLORS.get(s, "#888")
 _templates.env.filters["format_levels"] = db.format_levels
+_templates.env.filters["format_level_compact"] = db.format_level_compact
 
 
 def _prepare_spell(row) -> dict:

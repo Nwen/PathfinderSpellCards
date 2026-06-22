@@ -22,6 +22,7 @@ _templates.env.filters["school_icon"] = lambda s: db.school_icon_html(
     s, css_class="", extra_style="width:5pt;height:5pt;vertical-align:middle"
 )
 _templates.env.filters["format_levels"] = db.format_levels
+_templates.env.filters["format_level_compact"] = db.format_level_compact
 
 # Capacité estimée : nombre de caractères confortables à 6pt dans la zone description.
 # chars_capacity ∝ 1/font_size², donc font_size = BASE_PT × sqrt(BASE_CHARS / n).

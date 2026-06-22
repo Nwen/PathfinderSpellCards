@@ -9,9 +9,11 @@ from fastapi.staticfiles import StaticFiles
 
 from src import db as database
 from src.config import settings
+from src.routes.admin import router as admin_router
 from src.routes.browse import router as browse_router
 from src.routes.card import router as card_router
 from src.routes.cart import router as cart_router
+from src.routes.custom import router as custom_router
 from src.routes.overrides import router as overrides_router
 
 log = structlog.get_logger()
@@ -84,6 +86,8 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+app.include_router(admin_router)
+app.include_router(custom_router)   # must come before browse_router (/spells/new before /spells/{slug})
 app.include_router(browse_router)
 app.include_router(card_router)
 app.include_router(cart_router)

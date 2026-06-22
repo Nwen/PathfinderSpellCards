@@ -1,0 +1,250 @@
+{% extends "base.html.j2" %}
+{% block title %}{{ 'Modifier' if spell and spell.get('slug_fr') else 'Nouveau sort' }} — Pathfinder 1e{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6">
+
+  <a href="javascript:history.back()"
+     class="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 mb-4 transition-colors">
+    ← Retour
+  </a>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">
+    {{ 'Modifier le sort' if spell and spell.get('slug_fr') else 'Nouveau sort personnalisé' }}
+  </h1>
+
+  {% if error %}
+  <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-red-700 text-sm">
+    {{ error | e }}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{{ action | e }}" class="space-y-6">
+
+    <!-- ── Identité ───────────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-xl shadow p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Identité</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Nom français <span class="text-red-500">*</span></label>
+          <input type="text" name="name_fr" required
+                 value="{{ (spell.get('name_fr') or '') | e }}"
+                 placeholder="ex. Boule de feu"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">École <span class="text-red-500">*</span></label>
+          <select name="school" required
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <option value="">— Choisir —</option>
+            {% for s in known_schools %}
+            <option value="{{ s | e }}" {% if spell and spell.get('school') == s %}selected{% endif %}>
+              {{ s | capitalize }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Sous-école</label>
+          <input type="text" name="subschool"
+                 value="{{ (spell.get('subschool') or '') | e }}"
+                 placeholder="ex. invocation"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Descripteurs</label>
+          <input type="text" name="descriptors"
+                 value="{{ (spell.get('descriptors') or '') | e }}"
+                 placeholder="ex. feu, lumière"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Niveaux par classe ─────────────────────────────────────────────── -->
+    <div class="bg-white rounded-xl shadow p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Niveaux par classe</h2>
+
+      <input type="hidden" name="level_json" id="level-json-input"
+             value="{{ (spell.get('level_json') or '{}') | e }}">
+
+      <div id="level-rows" class="space-y-2 mb-3"></div>
+
+      <button type="button" onclick="addLevelRow()"
+              class="text-sm text-amber-600 hover:text-amber-800 font-medium transition-colors">
+        + Ajouter une classe
+      </button>
+    </div>
+
+    <!-- ── Paramètres ─────────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-xl shadow p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Paramètres</h2>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Temps d'incantation</label>
+          <input type="text" name="casting_time"
+                 value="{{ (spell.get('casting_time') or '') | e }}"
+                 placeholder="ex. 1 action simple"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Composantes</label>
+          <input type="text" name="components"
+                 value="{{ (spell.get('components') or '') | e }}"
+                 placeholder="ex. V, S, M"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Portée</label>
+          <input type="text" name="spell_range"
+                 value="{{ (spell.get('spell_range') or '') | e }}"
+                 placeholder="ex. longue (120 m + 12 m/niveau)"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Cible</label>
+          <input type="text" name="target"
+                 value="{{ (spell.get('target') or '') | e }}"
+                 placeholder="ex. une créature"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Zone</label>
+          <input type="text" name="area"
+                 value="{{ (spell.get('area') or '') | e }}"
+                 placeholder="ex. rayon de 6 m"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Durée</label>
+          <input type="text" name="duration"
+                 value="{{ (spell.get('duration') or '') | e }}"
+                 placeholder="ex. instantanée"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Jet de sauvegarde</label>
+          <input type="text" name="saving_throw"
+                 value="{{ (spell.get('saving_throw') or '') | e }}"
+                 placeholder="ex. Réflexes, 1/2 dégâts"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Résistance à la magie</label>
+          <input type="text" name="spell_resistance"
+                 value="{{ (spell.get('spell_resistance') or '') | e }}"
+                 placeholder="ex. oui"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Description ────────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-xl shadow p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Description</h2>
+      <textarea name="description_fr" rows="10"
+                placeholder="Décrivez l'effet du sort…"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-amber-400 resize-y">{{ (spell.get('description_fr') or '') | e }}</textarea>
+    </div>
+
+    <!-- ── Actions ────────────────────────────────────────────────────────── -->
+    <div class="flex items-center gap-3">
+      <button type="submit"
+              class="px-6 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-medium hover:bg-amber-600 transition-colors">
+        {{ 'Enregistrer les modifications' if spell and spell.get('slug_fr') else 'Créer le sort' }}
+      </button>
+      <a href="javascript:history.back()"
+         class="px-4 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+        Annuler
+      </a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+(function () {
+  var KNOWN_CLASSES = {{ known_classes | tojson }};
+
+  function buildSelect(selected) {
+    var s = document.createElement('select');
+    s.className = 'border border-gray-300 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 flex-1';
+    KNOWN_CLASSES.forEach(function (cls) {
+      var opt = document.createElement('option');
+      opt.value = cls;
+      opt.textContent = cls.charAt(0).toUpperCase() + cls.slice(1);
+      if (cls === selected) opt.selected = true;
+      s.appendChild(opt);
+    });
+    return s;
+  }
+
+  function buildLevelInput(level) {
+    var inp = document.createElement('input');
+    inp.type = 'number';
+    inp.min = '0';
+    inp.max = '9';
+    inp.value = level !== undefined ? String(level) : '1';
+    inp.className = 'w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-400';
+    return inp;
+  }
+
+  window.addLevelRow = function (cls, level) {
+    var container = document.getElementById('level-rows');
+    var row = document.createElement('div');
+    row.className = 'flex items-center gap-2';
+    var sel = buildSelect(cls || KNOWN_CLASSES[0]);
+    var inp = buildLevelInput(level);
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '✕';
+    btn.className = 'text-gray-400 hover:text-red-500 transition-colors text-sm px-1';
+    btn.onclick = function () { row.remove(); syncJson(); };
+    sel.onchange = syncJson;
+    inp.oninput = syncJson;
+    row.appendChild(sel);
+    row.appendChild(inp);
+    row.appendChild(btn);
+    container.appendChild(row);
+    syncJson();
+  };
+
+  function syncJson() {
+    var rows = document.querySelectorAll('#level-rows > div');
+    var obj = {};
+    rows.forEach(function (row) {
+      var sel = row.querySelector('select');
+      var inp = row.querySelector('input[type=number]');
+      if (sel && inp && sel.value) {
+        var lvl = parseInt(inp.value, 10);
+        if (!isNaN(lvl)) obj[sel.value] = lvl;
+      }
+    });
+    document.getElementById('level-json-input').value = JSON.stringify(obj);
+  }
+
+  // Pre-populate from existing level_json
+  (function () {
+    var raw = document.getElementById('level-json-input').value;
+    try {
+      var levels = JSON.parse(raw);
+      Object.keys(levels).forEach(function (cls) {
+        window.addLevelRow(cls, levels[cls]);
+      });
+    } catch (e) {}
+  })();
+})();
+</script>
+{% endblock %}

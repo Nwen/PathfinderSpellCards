@@ -1,0 +1,163 @@
+{% extends "base.html.j2" %}
+{% block title %}Administration — Pathfinder 1e{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+
+  <h1 class="text-2xl font-bold text-gray-900">Administration</h1>
+
+  <!-- ── Statistiques ──────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl shadow p-6">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Base de données</h2>
+    <dl class="grid grid-cols-2 gap-4">
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <dt class="text-xs text-gray-500 mb-1">Sorts indexés</dt>
+        <dd class="text-3xl font-bold text-gray-900" id="spell-count">{{ spell_count }}</dd>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 text-center">
+        <dt class="text-xs text-gray-500 mb-1">Dernière ingestion</dt>
+        <dd class="text-sm font-medium text-gray-700 mt-1" id="last-ingest">
+          {{ last_ingest or 'Jamais' }}
+        </dd>
+      </div>
+    </dl>
+  </div>
+
+  <!-- ── Ingestion ─────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl shadow p-6">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-1">Ingestion des sorts</h2>
+    <p class="text-xs text-gray-500 mb-5">
+      Télécharge le dump XML depuis pathfinder-fr.org, le parse et met à jour la base.
+      Les sorts personnalisés ne sont pas affectés.
+    </p>
+
+    <div class="flex flex-wrap gap-3 mb-6">
+      <button id="btn-download" onclick="startIngest(true)"
+              class="px-5 py-2.5 rounded-lg bg-amber-500 text-white text-sm font-medium
+                     hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+        ⬇ Télécharger et ingérer
+      </button>
+
+      <button id="btn-cached" onclick="startIngest(false)"
+              {% if not xml_exists %}disabled title="Aucune donnée locale trouvée"{% endif %}
+              class="px-5 py-2.5 rounded-lg border border-gray-300 text-sm text-gray-700
+                     hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+        ⚡ Ingérer sans télécharger
+        {% if not xml_exists %}
+        <span class="text-xs text-gray-400">(données absentes)</span>
+        {% endif %}
+      </button>
+    </div>
+
+    <!-- Zone de statut -->
+    <div id="status-area" class="hidden">
+      <!-- Barre de progression -->
+      <div class="flex items-center gap-3 mb-3">
+        <div id="status-indicator"
+             class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0"></div>
+        <span id="status-label" class="text-sm font-medium text-gray-700">En cours…</span>
+      </div>
+
+      <!-- Log en temps réel -->
+      <div id="log-box"
+           class="bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-xs leading-relaxed
+                  max-h-64 overflow-y-auto space-y-0.5">
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var pollTimer = null;
+
+  function setButtons(disabled) {
+    document.getElementById('btn-download').disabled = disabled;
+    var cached = document.getElementById('btn-cached');
+    if (!cached.hasAttribute('title')) cached.disabled = disabled;
+  }
+
+  function appendLog(lines) {
+    var box = document.getElementById('log-box');
+    lines.forEach(function (line) {
+      var el = document.createElement('div');
+      el.textContent = line;
+      box.appendChild(el);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  var _lastLogLen = 0;
+
+  function poll() {
+    fetch('/admin/ingest/status')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        // Append only new log lines
+        var newLines = data.log.slice(_lastLogLen);
+        if (newLines.length) {
+          appendLog(newLines);
+          _lastLogLen = data.log.length;
+        }
+
+        if (!data.running) {
+          clearInterval(pollTimer);
+          pollTimer = null;
+          setButtons(false);
+
+          var indicator = document.getElementById('status-indicator');
+          var label = document.getElementById('status-label');
+
+          if (data.error) {
+            indicator.className = 'w-2.5 h-2.5 rounded-full bg-red-500 shrink-0';
+            label.textContent = 'Erreur.';
+            label.className = 'text-sm font-medium text-red-600';
+          } else {
+            indicator.className = 'w-2.5 h-2.5 rounded-full bg-green-500 shrink-0';
+            label.textContent = data.inserted + ' sorts insérés, ' + data.updated + ' mis à jour.';
+            label.className = 'text-sm font-medium text-green-700';
+            document.getElementById('spell-count').textContent = data.total || '–';
+          }
+        }
+      })
+      .catch(function () { /* network error, keep polling */ });
+  }
+
+  window.startIngest = function (download) {
+    setButtons(true);
+    _lastLogLen = 0;
+
+    var box = document.getElementById('log-box');
+    box.innerHTML = '';
+    document.getElementById('status-indicator').className =
+      'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0';
+    document.getElementById('status-label').textContent = 'Démarrage…';
+    document.getElementById('status-label').className = 'text-sm font-medium text-gray-700';
+    document.getElementById('status-area').classList.remove('hidden');
+
+    fetch('/admin/ingest?download=' + download, { method: 'POST' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) {
+          appendLog([data.error || 'Erreur']);
+          setButtons(false);
+          return;
+        }
+        pollTimer = setInterval(poll, 1500);
+      })
+      .catch(function (err) {
+        appendLog(['Erreur réseau : ' + err]);
+        setButtons(false);
+      });
+  };
+
+  // If ingest was already running when page loaded, start polling immediately
+  {% if state.running %}
+  document.getElementById('status-area').classList.remove('hidden');
+  setButtons(true);
+  pollTimer = setInterval(poll, 1500);
+  {% endif %}
+})();
+</script>
+{% endblock %}
