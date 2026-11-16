@@ -3,6 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    pull_policy: build # reconstruit l'image à chaque redéploiement (sinon l'ancienne est réutilisée)
     ports:
       - "${PORT:-8974}:8974"
     volumes:
